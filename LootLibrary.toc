@@ -1,0 +1,21 @@
+## Interface: 50100
+## Title: LootLibrary
+## Version: 1.0.0
+## Notes: 
+## Author: Lombra
+## SavedVariables: LootLibraryDB, LootLibrary_FavoritesDB
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\AceAddon-3.0\AceAddon-3.0.lua
+Libs\AceDB-3.0\AceDB-3.0.lua
+Libs\AceEvent-3.0\AceEvent-3.0.lua
+Libs\LibBabble-Inventory-3.0\lib.xml
+
+Core.lua
+UI.lua
+Filters.lua
+
+Modules\Browse.lua
+Modules\Search.lua
+Modules\Favorites.lua
