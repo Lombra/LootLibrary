@@ -65,12 +65,12 @@ local filteredList = {}
 
 function Prototype:ApplyFilters()
 	wipe(filteredList)
-	for i, v in ipairs(addon:GetList(true)) do
+	for i, v in ipairs(self:GetList(true)) do
 		if FilterApproves(v) then
 			tinsert(filteredList, v)
 		end
 	end
-	addon:SetFilteredList(filteredList)
+	self:SetFilteredList(filteredList)
 end
 
 function Prototype:SetFilter(filter, arg)

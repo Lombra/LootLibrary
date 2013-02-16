@@ -1,13 +1,11 @@
 local addonName, addon = ...
 
 local Favorites = addon:NewModule("Favorites", addon:CreateUI("Favorites"))
-Favorites.hasScrollFrame = true
-
-local scrollFrame
-
-local highlight
+Favorites:CreateScrollFrame("LootLibraryFavoritesScrollFrame")
 
 do
+	local highlight
+	
 	local function onClick(self)
 		if highlight then
 			highlight:UnlockHighlight()
@@ -16,12 +14,11 @@ do
 		if self.list then
 			self:LockHighlight()
 			highlight = self
+			Favorites:SetList(self.list)
 		end
-		currentList = self.list
-		Favorites:SetList(self.list)
 	end
 	
-	scrollFrame = Favorites:CreateNavigationFrame("LootLibraryFavoritesNavigationScrollFrame", onClick)
+	local scrollFrame = Favorites:CreateNavigationFrame("LootLibraryFavoritesNavigationScrollFrame", onClick)
 	scrollFrame.updateButton = function(button, object)
 		button:SetText(object.name)
 		button.list = object.items
@@ -29,19 +26,10 @@ do
 	end
 
 	local homeButton = scrollFrame:AddHeader()
-	homeButton.type = "tiers"
-	homeButton.list = home
 	homeButton:SetText("All items")
 	homeButton.label:SetFontObject("GameFontNormal")
 
-	local tierButton = scrollFrame:AddHeader()
-	tierButton.type = "instances"
-	-- tierButton.list = FavoritesDB.items
-	tierButton:SetText("Non set items")
-	tierButton.label:SetFontObject("GameFontNormal")
-
 	local instanceButton = scrollFrame:AddHeader()
-	instanceButton.type = "encounters"
 	instanceButton:SetText("Sets")
 	instanceButton.label:SetFontObject("GameFontNormal")
 	
@@ -56,10 +44,12 @@ local defaults = {
 }
 
 function Favorites:OnInitialize()
-	self.db = LibStub("AceDB-3.0"):New("LootLibrary_FavoritesDB", defaults)
+	self.db = addon.db:RegisterNamespace("Favorites", defaults)
 	self:SetList(self.db.char.items)
-	scrollFrame.list = self.db.char.sets
-	scrollFrame.update()
+	self:SetNavigationList(self.db.char.sets)
+	local headers = self.navigationScrollFrame.headers
+	headers[1].list = self.db.char.items
+	-- headers[2].list = self.db.char.items
 end
 
 function Favorites:AddSet(name)
@@ -67,25 +57,51 @@ function Favorites:AddSet(name)
 		name = name,
 		items = {},
 	})
-	scrollFrame.update()
+	self:UpdateNavigationList()
 end
 
-function Favorites:AddItem(itemID)
+function Favorites:AddItem(itemID, set)
 	if not GetItemIcon(itemID) then
 		error("Invalid item", 2)
 	end
-	-- tinsert(addon:GetList(true), itemID)
-	tinsert(self.db.char.items, itemID)
+	if not self:HasItem(itemID) then
+		tinsert(self.db.char.items, itemID)
+	end
+	if set then
+		local set1 = self:GetSet(set)
+		if not set1 then
+			error(format("Set '%s' does not exist.", set), 2)
+		elseif not self:HasItem(itemID, set) then
+			tinsert(set.items, itemID)
+		end
+	end
 	self:UpdateList()
 end
 
-function Favorites:HasItem(itemID)
+function Favorites:HasItem(itemID, set)
+	local items = self:GetItems(set)
 	for i, v in ipairs(items) do
 		if v == itemID then
 			return true
 		end
 	end
 	return false
+end
+
+function Favorites:GetItems(set)
+	return set and self:GetSet(set).items or self.db.char.items
+end
+
+function Favorites:GetSet(name)
+	for i, set in self:IterateSets() do
+		if set.name == name then
+			return set
+		end
+	end
+end
+
+function Favorites:IterateSets()
+	return ipairs(self.db.char.sets)
 end
 
 local add = Favorites:CreateEditBox("loool")

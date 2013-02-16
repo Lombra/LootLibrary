@@ -1,7 +1,7 @@
 local addonName, addon = ...
 
 local Browse = addon:NewModule("Browse", addon:CreateUI("Browse"))
-Browse.hasScrollFrame = true
+Browse:CreateScrollFrame("LootLibraryBrowseScrollFrame")
 
 local data = {
 	tiers = {},
@@ -211,7 +211,7 @@ difficultyMenu.initialize = function(self, level)
 end
 
 local difficultyButton = CreateFrame("Button", "LootLibraryDifficulty", Browse, "UIMenuButtonStretchTemplate")
-difficultyButton:SetWidth(128)
+difficultyButton:SetWidth(120)
 difficultyButton:SetPoint("LEFT", filterButton, "RIGHT", 16, 0)
 difficultyButton:SetText("(10) Normal")
 difficultyButton.rightArrow:Show()
@@ -249,7 +249,6 @@ searchBox:SetScript("OnTextChanged", function(self, isUserInput)
 	Browse:SetNavigationList(search)
 end)
 
-local scrollFrame
 local tierButton
 local instanceButton
 
@@ -292,7 +291,7 @@ do
 		end
 	end
 	
-	scrollFrame = Browse:CreateNavigationFrame("LootLibraryBrowseNavigationScrollFrame", onClick)
+	local scrollFrame = Browse:CreateNavigationFrame("LootLibraryBrowseNavigationScrollFrame", onClick)
 	scrollFrame.dynamicHeaders = true
 	scrollFrame.updateButton = function(button, object, list)
 		local item = data[list.type][object]
@@ -332,6 +331,7 @@ function Browse:OnInitialize()
 	self.db = addon.db:RegisterNamespace("Browse", defaults)
 	self:RegisterEvent("EJ_LOOT_DATA_RECIEVED", "RefreshLoot")
 	
+	self:SetList(nil)
 	self:SetNavigationList(home)
 end
 
@@ -347,15 +347,6 @@ function Browse:OnShow()
 		self:SetFilter("sourceDifficulty", difficultyIndex)
 		Browse:SelectInstance(instanceID)
 	end
-end
-
-function Browse:SetNavigationList(list)
-	scrollFrame.list = list
-	scrollFrame:update()
-end
-
-function Browse:GetNavigationList()
-	return scrollFrame.list
 end
 
 function Browse:IsValidDifficulty(difficulty)
@@ -631,7 +622,7 @@ local function refreshLoot(self)
 			-- v.spec = nil
 		-- end
 	end
-	LootLibraryScrollFrame:update()
+	self:UpdateList()
 	self:RemoveOnUpdate()
 	if d then print("refreshLoot", debugprofilestop() - s) end
 end
