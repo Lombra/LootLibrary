@@ -507,8 +507,6 @@ do
 			return button
 		end
 
-		-- local list = addon:GetList()
-		
 		local function updateButton(button, object)
 			local isHeader = type(object) == "table"
 			button.categoryLeft:SetShown(isHeader)
@@ -522,17 +520,16 @@ do
 				button.highlight:SetPoint("BOTTOMRIGHT", -3, 2)
 				button.label:SetText(object.name)
 				button.label:SetFontObject("GameFontNormal")
-				if object.special then
-					button.label:SetFontObject("GameFontHighlight")
-				end
 				button.label:SetPoint("LEFT", 11, 0)
 				button.itemID = nil
 			else
 				local itemName, icon, source, armorType, slot
-				local item = items[object]
+				local item = addon:GetItem(object)
+				local r, g, b = RED_FONT_COLOR.r, RED_FONT_COLOR.g, RED_FONT_COLOR.b
 				if item then
 					itemName = item.name
 					icon = item.icon
+					r, g, b = GetItemQualityColor(item.quality)
 					source = EJ_GetEncounterInfo(next(item.source))
 					armorType = item.armorType
 					slot = item.slot
@@ -541,8 +538,7 @@ do
 					itemName = name or RETRIEVING_ITEM_INFO
 					icon = GetItemIcon(object)
 					if name then
-						local r, g, b = GetItemQualityColor(quality)
-						button.label:SetTextColor(r, g, b)
+						r, g, b = GetItemQualityColor(quality)
 						subclass = not noArmor[equipSlot] and (weaponTypes[subclass] or subclass)
 					else
 						doUpdate = true
@@ -551,7 +547,23 @@ do
 					armorType = subclass
 					slot = _G[equipSlot]
 				end
+				-- if not item then
+					-- local name, _, quality, iLevel, reqLevel, class, subclass, _, equipSlot = GetItemInfo(object)
+					-- if name then
+						-- item = {
+							-- name = name
+							-- icon = icon,
+							-- quality = quality,
+							-- slot = _G[equipSlot],
+							-- armorType = not noArmor[equipSlot] and (weaponTypes[subclass] or subclass),-- or nil,
+							-- class = 0,
+							-- spec = 0,
+						-- }
+						-- addon:AddItem(object, item)
+					-- end
+				-- end
 				button.label:SetText(itemName)
+				button.label:SetTextColor(r, g, b)
 				button.icon:SetTexture(icon)
 				button.source:SetText(source)
 				if armorType and slot then
@@ -733,7 +745,23 @@ function Prototype:GetList(raw)
 	return not raw and self.filteredList or self.list
 end
 
+local sortOrder = {
+	"slot",
+	"armorType",
+	"name",
+}
+
+local function listSort(a, b)
+	a, b = items[a], items[b]
+	for i, v in ipairs(sortOrder) do
+		if a[v] ~= b[v] then
+			return (a[v] and b[v]) and a[v] > b[v]
+		end
+	end
+end
+
 function Prototype:UpdateList()
+	-- sort(self:GetList(), listSort)
 	self.scrollFrame:update()
 end
 

@@ -5,6 +5,7 @@ LootLibrary = addon
 BINDING_HEADER_LOOT_LIBRARY = "LootLibrary"
 BINDING_NAME_LOOT_LIBRARY_TOGGLE = "Toggle LootLibrary"
 
+local itemArray = {}
 local items = {}
 addon.items = items
 
@@ -75,20 +76,12 @@ local mixins = {
 
 for k, v in pairs(mixins) do addon[k] = v end
 
-function addon:NewModule(name, table)
-	if modules[name] then
-		error("Module '"..name.."' already exists.", 2)
+addon:RegisterEvent("ADDON_LOADED", function(self, addon)
+	if addon == addonName then
+		self:OnInitialize()
+		self:UnregisterEvent("ADDON_LOADED")
 	end
-	
-	local module = table or {}
-	for k, v in pairs(mixins) do module[k] = v end
-	modules[name] = module
-	return module
-end
-
-function addon:GetModule(name)
-	return modules[name]
-end
+end)
 
 local defaults = {
 	profile = {
@@ -104,9 +97,30 @@ function addon:OnInitialize()
 	end
 end
 
-addon:RegisterEvent("ADDON_LOADED", function(self, addon)
-	if addon == addonName then
-		self:OnInitialize()
-		self:UnregisterEvent("ADDON_LOADED")
+function addon:NewModule(name, table)
+	if modules[name] then
+		error("Module '"..name.."' already exists.", 2)
 	end
-end)
+	
+	local module = table or {}
+	for k, v in pairs(mixins) do module[k] = v end
+	modules[name] = module
+	return module
+end
+
+function addon:GetModule(name)
+	return modules[name]
+end
+
+function addon:AddItem(itemID, data)
+	items[itemID] = data
+	tinsert(itemArray, itemID)
+end
+
+function addon:GetItem(itemID)
+	return items[itemID]
+end
+
+function addon:GetAllItems()
+	return itemArray
+end

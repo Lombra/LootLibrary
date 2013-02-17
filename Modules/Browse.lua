@@ -23,6 +23,7 @@ for i = 1, GetNumClasses() do
 end
 
 local function setGearFilter(self, classID, specID)
+	Browse:LoadAllTierLoot()
 	Browse:LoadSpecData(Browse:GetNavigationList() ~= home and Browse:GetSelectedTier())
 	CloseDropDownMenus(1)
 	Browse:SetFilter("class", classID)
@@ -252,9 +253,9 @@ end)
 local tierButton
 local instanceButton
 
-local highlight
-
 do
+	local highlight
+	
 	local function onClick(self)
 		Browse:OnClick(self)
 	end
@@ -327,12 +328,49 @@ local defaults = {
 	},
 }
 
+local function addInstances(tier, isRaid)
+	local n = 1
+	while true do
+		local instanceID, name, _, _, buttonImage, _, _, link = EJ_GetInstanceByIndex(n, isRaid)
+		if not instanceID then
+			break
+		end
+		n = n + 1
+		tinsert(tier, instanceID)
+		data.instances[instanceID] = {
+			type = "encounters",
+			name = name,
+			difficulty = 0,
+			isRaid = isRaid,
+			loot = {},
+		}
+	end
+end
+
+local function refreshLoot(self)
+	self:SetOnUpdate(self.RefreshLoot)
+end
+
 function Browse:OnInitialize()
 	self.db = addon.db:RegisterNamespace("Browse", defaults)
-	self:RegisterEvent("EJ_LOOT_DATA_RECIEVED", "RefreshLoot")
+	self:RegisterEvent("EJ_LOOT_DATA_RECIEVED", refreshLoot)
 	
-	self:SetList(nil)
+	for i = 1, EJ_GetNumTiers() do
+		home[i] = i
+		local name = EJ_GetTierInfo(i)
+		local tier = {
+			type = "instances",
+			name = name,
+			standby = true,
+		}
+		data.tiers[i] = tier
+		EJ_SelectTier(i)
+		addInstances(tier, false)
+		addInstances(tier, true)
+	end
+	
 	self:SetNavigationList(home)
+	self:SetList(nil)
 end
 
 function Browse:OnShow()
@@ -375,11 +413,11 @@ function Browse:SetDifficulty(difficultyID)
 end
 
 function Browse:SetSelectedTier(tierID)
-	local tier = data.tiers[tierID]
-	if tier.notLoaded then
+	if not self:IsTierDataLoaded(tierID) then
 		self:LoadTierData(tierID)
 	end
 	
+	local tier = data.tiers[tierID]
 	tierButton:SetText(tier.name)
 	tierButton.id = tierID
 	tierButton.list = tier
@@ -416,46 +454,38 @@ function Browse:SelectInstance(instanceID)
 	end
 end
 
-local items = addon.items
-
-local function getInstances(isRaid, instances)
-	local n = 1
-	while true do
-		local instanceID, name, _, _, buttonImage, _, _, link = EJ_GetInstanceByIndex(n, isRaid)
-		if not instanceID then
-			break
-		end
-		n = n + 1
-		tinsert(instances, instanceID)
-		data.instances[instanceID] = data.instances[instanceID] or {
-			type = "encounters",
-			name = name,
-			difficulty = 0,
-			isRaid = isRaid,
-			loot = {},
-		}
-	end
+function Browse:GetNumTiers()
+	return #home
 end
 
-for i = 1, EJ_GetNumTiers() do
-	home[i] = i
-	local name = EJ_GetTierInfo(i)
-	local tier = data.tiers[i] or {
-		type = "instances",
-		name = name,
-		notLoaded = true,
-	}
-	data.tiers[i] = tier
-	EJ_SelectTier(i)
-	getInstances(false, tier)
-	getInstances(true, tier)
+function Browse:GetNumInstances(tier)
+	return #data.tiers[tier]
+end
+
+function Browse:GetNumEncounters(instanceID)
+	local instance = data.instances[instanceID]
+	return instance and #instance
+end
+
+function Browse:GetNumItems(instanceID)
+	local instance = data.instances[instanceID]
+	return instance and #instance.loot
 end
 
 local addedItems = {}
 
-local b, l, s = 0, 0, 0
+local function getQuality(item)
+	for k, v in pairs(ITEM_QUALITY_COLORS) do
+		if item:match("^"..v.hex) then
+			return k
+		end
+	end
+end
 
-local function GetInstanceData(index)
+function Browse:LoadTierLoot(index)
+	local t = debugprofilestop()
+
+	local classFilter, specFilter = EJ_GetLootFilter()
 	for i, instanceID in ipairs(data.tiers[index]) do
 		local instance = data.instances[instanceID]
 		wipe(instance.loot)
@@ -464,7 +494,6 @@ local function GetInstanceData(index)
 		
 		for i, v in ipairs(Browse:GetDifficulties(instance.isRaid)) do
 			if EJ_IsValidInstanceDifficulty(v.difficultyID) then
-				local t, m = debugprofilestop()
 				EJ_SetDifficulty(v.enumValue)
 				local encounterIndex = 1
 				while true do
@@ -485,10 +514,6 @@ local function GetInstanceData(index)
 					data.encounters[encounterID] = encounter
 				end
 				
-				m = debugprofilestop()
-				b = b + m - t
-				t = m
-				
 				EJ_SetLootFilter(0, 0)
 				local numLoot = EJ_GetNumLoot()
 				if numLoot > 0 then
@@ -496,20 +521,21 @@ local function GetInstanceData(index)
 				end
 				for i = 1, numLoot do
 					local name, icon, slot, armorType, itemID, link, encounterID = EJ_GetLootInfoByIndex(i)
-					local item = items[itemID]
+					local item = addon:GetItem(itemID)
 					if not item then
+						local quality = getQuality(name)
 						item = {
-							name = name,
+							name = strmatch(name, "|cff%x%x%x%x%x%x(.+)|r"),
 							icon = icon,
-							slot = slot ~= "" and slot,
-							armorType = armorType ~= "" and armorType,
-							-- link = link,
+							quality = quality,
+							slot = slot ~= "" and slot or nil,
+							armorType = armorType ~= "" and armorType or nil,
 							source = {},
 							class = 0,
 							spec = 0,
 							sourceDifficulty = 0,
 						}
-						items[itemID] = item
+						addon:AddItem(itemID, item)
 					end
 					item.source[encounterID] = true
 					-- if this item has already been added for the current difficulty, don't add it again, otherwise we'd get duplicates from 10 and 25 man
@@ -519,53 +545,24 @@ local function GetInstanceData(index)
 					end
 					item.sourceDifficulty = bit.bor(item.sourceDifficulty, 2 ^ v.difficultyID)
 				end
-				
-				m = debugprofilestop()
-				l = l + m - t
-				t = m
-				
-				-- for classID = 1, GetNumClasses() do
-					-- for i = 1, GetNumSpecializationsForClassID(classID) do
-						-- local specID = GetSpecializationInfoForClassID(classID, i)
-						-- EJ_SetLootFilter(classID, specID)
-						-- for i = 1, EJ_GetNumLoot() do
-							-- local name, icon, slot, armorType, itemID = EJ_GetLootInfoByIndex(i)
-							-- local item = items[itemID]
-							-- item.class = bit.bor(item.class, 2 ^ classID)
-							-- item.spec = bit.bor(item.spec, 2 ^ specs[specID])
-						-- end
-					-- end
-				-- end
-				
-				m = debugprofilestop()
-				s = s + m - t
-				t = m
 			end
 		end
 	end
-	EJ_SetLootFilter(0, 0)
+	EJ_SetLootFilter(classFilter, specFilter)
+	data.tiers[index].standby = nil
+	print("LoadTierLoot", index, debugprofilestop() - t)
 end
 
-local function GetSpecData(index)
-end
-
-function Browse:LoadTierData(index)
-	local t = debugprofilestop()
-	b, l, s = 0, 0, 0
-	GetInstanceData(index)
-	data.tiers[index].notLoaded = nil
-	print("LoadTier", index, debugprofilestop() - t)
-end
-
-function Browse:LoadLoot()
-	local s, d = debugprofilestop()
-	for i, v in ipairs(data.tiers) do
-		if v.notLoaded then
-			self:LoadTierData(i)
-			d = true
+function Browse:LoadAllTierLoot()
+	for i = 1, self:GetNumTiers() do
+		if not self:IsTierDataLoaded(i) then
+			self:LoadTierLoot(i)
 		end
 	end
-	if d then print("LoadLoot", debugprofilestop() - s) end
+end
+
+function Browse:IsTierDataLoaded(index)
+	return not data.tiers[index].standby
 end
 
 function Browse:LoadSpecData(index)
@@ -596,7 +593,7 @@ function Browse:LoadSpecData(index)
 						EJ_SetLootFilter(classID, specID)
 						for i = 1, EJ_GetNumLoot() do
 							local name, icon, slot, armorType, itemID = EJ_GetLootInfoByIndex(i)
-							local item = items[itemID]
+							local item = addon:GetItem(itemID)
 							if not item then print(itemID, name) end
 							item.class = bit.bor(item.class, 2 ^ classID)
 							item.spec = bit.bor(item.spec, 2 ^ specs[specID])
@@ -613,38 +610,16 @@ function Browse:LoadSpecData(index)
 	print("LoadSpecData", index, debugprofilestop() - t)
 end
 
-local function refreshLoot(self)
+function Browse:RefreshLoot()
 	local s, d = debugprofilestop()
-	for i, v in ipairs(data.tiers) do
-		-- if not v.notLoaded then
-			self:LoadTierData(i)
+	for i = 1, self:GetNumTiers() do
+		if self:IsTierDataLoaded(i) then
+			self:LoadTierLoot(i)
 			d = true
 			-- v.spec = nil
-		-- end
+		end
 	end
 	self:UpdateList()
 	self:RemoveOnUpdate()
 	if d then print("refreshLoot", debugprofilestop() - s) end
-end
-
-function Browse:RefreshLoot()
-	self:SetOnUpdate(refreshLoot)
-end
-
-function Browse:GetNumTiers()
-	return #home
-end
-
-function Browse:GetNumInstances(tier)
-	return #data.tiers[tier]
-end
-
-function Browse:GetNumEncounters(instanceID)
-	local instance = data.instances[instanceID]
-	return instance and #instance
-end
-
-function Browse:GetNumItems(instanceID)
-	local instance = data.instances[instanceID]
-	return instance and #instance.loot
 end

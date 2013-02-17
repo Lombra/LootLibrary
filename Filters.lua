@@ -1,43 +1,44 @@
 local addonName, addon = ...
 
-local items = addon.items
+local Prototype = addon.prototype
 
-local filters = {
-	name = function(value, filterArg)
-		return strfind(strlower(strmatch(value, "|cff%x%x%x%x%x%x(.+)|r")), filterArg, nil, true)
+local filterTemplates = {
+	stringContains = function(value, arg)
+		return strfind(strlower(value), arg, nil, true) ~= nil
 	end,
-	minReqLevel = function(value, filterArg)
-		return value >= filterArg
+	tableContains = function(value, arg)
+		return value[arg]
 	end,
-	maxReqLevel = function(value, filterArg)
-		return value <= filterArg
+	bitflagsContain = function(value, arg)
+		return bit.band(value, 2 ^ arg) > 0
 	end,
-	minItemLevel = function(value, filterArg)
-		return value >= filterArg
+	equals = function(value, arg)
+		return value == arg
 	end,
-	maxItemLevel = function(value, filterArg)
-		return value <= filterArg
+	lessorequal = function(value, arg)
+		return value <= arg
 	end,
-	slot = function(value, filterArg)
-		return strfind(value, filterArg)
-	end,
-	armorType = function(value, filterArg)
-		return strfind(value, filterArg)
-	end,
-	class = function(value, filterArg)
-		return bit.band(value, 2 ^ filterArg) > 0
-	end,
-	spec = function(value, filterArg)
-		return bit.band(value, 2 ^ filterArg) > 0
-	end,
-	source = function(value, filterArg)
-		return value[filterArg]
-	end,
-	sourceDifficulty = function(value, filterArg)
-		return bit.band(value, 2 ^ filterArg) > 0
+	greaterorequal = function(value, arg)
+		return value >= arg
 	end,
 }
 
+-- the logic used by each filter
+local filters = {
+	name = filterTemplates.stringContains,
+	minReqLevel = filterTemplates.greaterorequal,
+	maxReqLevel = filterTemplates.lessorequal,
+	minItemLevel = filterTemplates.greaterorequal,
+	maxItemLevel = filterTemplates.lessorequal,
+	slot = filterTemplates.equals,
+	armorType = filterTemplates.equals,
+	class = filterTemplates.bitflagsContain,
+	spec = filterTemplates.bitflagsContain,
+	source = filterTemplates.tableContains,
+	sourceDifficulty = filterTemplates.bitflagsContain,
+}
+
+-- exceptions for filters whose names does not match an existing item field
 local exceptions = {
 	minReqLevel = "reqLevel",
 	maxReqLevel = "reqLevel",
@@ -45,11 +46,8 @@ local exceptions = {
 	maxItemLevel = "itemLevel",
 }
 
-local filterArgs = {
-}
-
 local function FilterApproves(item)
-	item = items[item]
+	item = addon:GetItem(item)
 	for filterName, filterArg in pairs(addon:GetSelectedTab().filterArgs) do
 		local value = item[exceptions[filterName] or filterName]
 		if not (value ~= nil and filters[filterName](value, filterArg)) then
@@ -58,8 +56,6 @@ local function FilterApproves(item)
 	end
 	return true
 end
-
-local Prototype = addon.prototype
 
 local filteredList = {}
 

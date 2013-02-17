@@ -1,15 +1,11 @@
 local addonName, addon = ...
 
 local Search = addon:NewModule("Search", addon:CreateUI("Search"))
-Search.hasScrollFrame = true
+Search:CreateScrollFrame("LootLibrarySearchScrollFrame")
 
 function Search:OnShow()
-	addon:GetModule("Browse"):LoadLoot()
-	local search = {}
-	for itemID in pairs(addon.items) do
-		tinsert(search, itemID)
-	end
-	self:SetList(search)
+	addon:GetModule("Browse"):LoadAllTierLoot()
+	self:SetList(addon:GetAllItems())
 end
 
 function Search:OnHide()
@@ -33,7 +29,6 @@ nameFilter:SetScript("OnTextChanged", function(self, isUserInput)
 end)
 
 local function onEnterPressed(self)
-	addon:GetModule("Browse"):LoadLoot()
 	for itemID, item in pairs(addon.items) do
 		if not item.reqLevel then
 			local name, link, quality, iLevel, reqLevel, class, subclass, maxStack, equipSlot = GetItemInfo(itemID)
@@ -155,7 +150,7 @@ for i = 1, GetNumClasses() do
 end
 
 local function EncounterJournal_SetFilter(self, classID, specID)
-	addon:GetModule("Browse"):LoadLoot()
+	addon:GetModule("Browse"):LoadAllTierLoot()
 	addon:GetModule("Browse"):LoadSpecData()
 	CloseDropDownMenus(1)
 	Search:SetFilter("class", classID)
