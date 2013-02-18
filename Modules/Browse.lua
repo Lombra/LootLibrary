@@ -277,16 +277,17 @@ do
 			self:SetList(nil)
 			self:SetNavigationList(object.list)
 		elseif object.type == "encounters" then
-			if not self:IsValidDifficulty(object.list.difficulty) then
-				self:SelectValidDifficulty(object.list, object.list.isRaid)
+			if not self:IsValidDifficulty("instances", object.id) then
+				self:SelectValidDifficulty("instances", object.id, object.list.isRaid)
 			end
 			self:SetSelectedInstance(object.id)
 		else
 			highlight = object
 			object:LockHighlight()
-			if not self:IsValidDifficulty(data.encounters[object.id].difficulty) then
-				self:SelectValidDifficulty(data.encounters[object.id], self:GetNavigationList().isRaid)
+			if not self:IsValidDifficulty("encounters", object.id) then
+				self:SelectValidDifficulty("encounters", object.id, self:GetNavigationList().isRaid)
 			end
+			self.scrollFrame.headers[1]:SetText(object.list.name)
 			self:SetFilter("source", object.id)
 			self:ApplyFilters()
 		end
@@ -373,28 +374,39 @@ function Browse:OnInitialize()
 	self:SetList(nil)
 end
 
+local lastInstance
+local lastDifficulty
+
 function Browse:OnShow()
 	if not self.db.profile.autoSelectInstance then return end
 	
+	-- navigate to current instance
 	local instanceID = EJ_GetCurrentInstance()
 	local _, _, difficultyIndex = GetInstanceInfo()
-	if instanceID ~= 0 then--and (instanceID ~= EncounterJournal.lastInstance or difficultyIndex ~= EncounterJournal.lastDifficultyIndex) then
+	if instanceID ~= 0 then--and (instanceID ~= lastInstance or difficultyIndex ~= lastDifficultyIndex) then
+		lastInstance = instanceID
+		lastDifficulty = difficultyIndex
 		if IsPartyLFG() and IsInRaid() then
 			difficultyIndex = EJ_DIFF_LFRAID
 		end
-		self:SetFilter("sourceDifficulty", difficultyIndex)
-		Browse:SelectInstance(instanceID)
+		self:SelectInstance(instanceID)
+		if self:IsValidDifficulty("instances", instanceID, difficultyIndex) then
+			self:SetDifficulty(difficultyIndex)
+		else
+			self:SelectValidDifficulty("instances", instanceID, data.instances[instanceID].isRaid)
+		end
 	end
 end
 
-function Browse:IsValidDifficulty(difficulty)
-	local filter = self:GetFilter("sourceDifficulty")
-	return filter and bit.band(difficulty, 2 ^ filter) > 0
+function Browse:IsValidDifficulty(objectType, objectID, filter)
+	filter = filter or self:GetFilter("sourceDifficulty")
+	return filter and bit.band(data[objectType][objectID].difficulty, 2 ^ filter) > 0
 end
 
-function Browse:SelectValidDifficulty(object, isRaid)
+function Browse:SelectValidDifficulty(objectType, objectID, isRaid)
+	local difficulty = data[objectType][objectID].difficulty
 	for i, v in ipairs(self:GetDifficulties(isRaid)) do
-		if bit.band(object.difficulty, 2 ^ v.difficultyID) > 0 then
+		if bit.band(difficulty, 2 ^ v.difficultyID) > 0 then
 			self:SetDifficulty(v.difficultyID)
 			break
 		end
@@ -414,7 +426,10 @@ end
 
 function Browse:SetSelectedTier(tierID)
 	if not self:IsTierDataLoaded(tierID) then
-		self:LoadTierData(tierID)
+		self:LoadTierLoot(tierID)
+	end
+	if self:GetFilter("class") or self:GetFilter("spec") then
+		self:LoadSpecData(tierID)
 	end
 	
 	local tier = data.tiers[tierID]
@@ -436,6 +451,8 @@ function Browse:SetSelectedInstance(instanceID)
 	self:SetList(instance.loot)
 	self:ClearFilter("source")
 	self:ApplyFilters()
+	
+	self.scrollFrame.headers[1]:SetText(instance.name)
 end
 
 function Browse:GetSelectedTier()
@@ -611,6 +628,7 @@ function Browse:LoadSpecData(index)
 end
 
 function Browse:RefreshLoot()
+	print("refreshloot")
 	local s, d = debugprofilestop()
 	for i = 1, self:GetNumTiers() do
 		if self:IsTierDataLoaded(i) then

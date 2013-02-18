@@ -11,7 +11,7 @@ end
 function Search:OnHide()
 end
 
-local nameFilter = Search:CreateSearchBox(Search, "LootLibrarySearchName")
+local nameFilter = Search:CreateSearchBox()
 nameFilter:SetPoint("TOPLEFT", 24, -80)
 nameFilter:SetSize(100, 20)
 nameFilter:SetScript("OnTextChanged", function(self, isUserInput)
@@ -29,40 +29,33 @@ nameFilter:SetScript("OnTextChanged", function(self, isUserInput)
 end)
 
 local function onEnterPressed(self)
-	for itemID, item in pairs(addon.items) do
-		if not item.reqLevel then
-			local name, link, quality, iLevel, reqLevel, class, subclass, maxStack, equipSlot = GetItemInfo(itemID)
-			item.itemLevel = iLevel
-			item.reqLevel = reqLevel
-		end
-	end
 	Search:SetFilter(self.filter, self:GetNumber())
 	Search:ApplyFilters()
 	self:ClearFocus()
 end
 
-local minLevel = Search:CreateEditBox("LootLibrarySearchMinLevel")
+local minLevel = Search:CreateEditBox()
 minLevel:SetPoint("TOPLEFT", nameFilter, "BOTTOMLEFT", 0, -16)
 minLevel:SetSize(32, 20)
 minLevel:SetNumeric(true)
 minLevel:SetScript("OnEnterPressed", onEnterPressed)
 minLevel.filter = "minReqLevel"
 
-local maxLevel = Search:CreateEditBox("LootLibrarySearchMaxLevel")
+local maxLevel = Search:CreateEditBox()
 maxLevel:SetPoint("LEFT", minLevel, "RIGHT", 36, 0)
 maxLevel:SetSize(32, 20)
 maxLevel:SetNumeric(true)
 maxLevel:SetScript("OnEnterPressed", onEnterPressed)
 maxLevel.filter = "maxReqLevel"
 
-local minItemLevel = Search:CreateEditBox("LootLibrarySearchMinItemLevel")
+local minItemLevel = Search:CreateEditBox()
 minItemLevel:SetPoint("TOPLEFT", minLevel, "BOTTOMLEFT", 0, -16)
 minItemLevel:SetSize(32, 20)
 minItemLevel:SetNumeric(true)
 minItemLevel:SetScript("OnEnterPressed", onEnterPressed)
 minItemLevel.filter = "minItemLevel"
 
-local maxItemLevel = Search:CreateEditBox("LootLibrarySearchMaxItemLevel")
+local maxItemLevel = Search:CreateEditBox()
 maxItemLevel:SetPoint("LEFT", minItemLevel, "RIGHT", 36, 0)
 maxItemLevel:SetSize(32, 20)
 maxItemLevel:SetNumeric(true)
@@ -232,3 +225,22 @@ class.initialize = function(self, level)
 		UIDropDownMenu_AddButton(info, level)
 	end
 end
+
+local filterButton = CreateFrame("Button", "LootLibraryasddads", Search, "UIMenuButtonStretchTemplate")
+filterButton:SetWidth(48)
+filterButton:SetPoint("TOP", class, "BOTTOM")
+filterButton:SetText("GO")
+filterButton:SetScript("OnClick", function(self)
+	local stats = {}
+	local list = Search:GetList()
+	for i = #list, 1, -1 do
+		local _, link = GetItemInfo(list[i])
+		local stats = GetItemStats(link, statsa)
+		if not stats["ITEM_MOD_AGILITY_SHORT"] then
+			tremove(list, i)
+		end
+		addon:GetItem(list[i]).stats = stats
+		wipe(stats)
+	end
+	Search:UpdateList()
+end)

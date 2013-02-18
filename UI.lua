@@ -1,4 +1,4 @@
-local _, addon = ...
+local addonName, addon = ...
 
 local LBI = LibStub("LibBabble-Inventory-3.0"):GetUnstrictLookupTable()
 
@@ -36,6 +36,13 @@ local noArmor = {
 	INVTYPE_NECK = true,
 	INVTYPE_TRINKET = true,
 }
+
+local widgetIndex = 1
+local function getWidgetName()
+	local name = addonName.."Widget"..widgetIndex
+	widgetIndex = widgetIndex + 1
+	return name
+end
 
 local items = addon.items
 
@@ -239,48 +246,11 @@ do
 	end
 	
 	do	-- scroll frame for items
-		local function onClick(self, itemID, set)
-			local Favorites = addon:GetModule("Favorites")
-			Favorites:AddItem(itemID, set)
-			CloseDropDownMenus()
-		end
-		
 		local dropdown = CreateFrame("Frame")
 		dropdown.displayMode = "MENU"
-		dropdown.initialize = function(self, level, menuList)
-			if level == 1 then
-				local info = UIDropDownMenu_CreateInfo()
-				info.text = "Add to favorites"
-				info.func = onClick
-				info.arg1 = UIDROPDOWNMENU_MENU_VALUE
-				info.notCheckable = true
-				-- info.disabled = 
-				UIDropDownMenu_AddButton(info)
-				
-				local info = UIDropDownMenu_CreateInfo()
-				info.text = "Add to favorite set"
-				info.value = UIDROPDOWNMENU_MENU_VALUE
-				info.notCheckable = true
-				-- info.disabled = 
-				info.hasArrow = true
-				info.keepShownOnClick = true
-				info.menuList = addon:GetModule("Favorites").db.char.sets
-				UIDropDownMenu_AddButton(info)
-			elseif level == 2 then
-				for i, v in ipairs(menuList) do
-					local info = UIDropDownMenu_CreateInfo()
-					info.text = v.name
-					info.func = onClick
-					info.arg1 = UIDROPDOWNMENU_MENU_VALUE
-					info.arg2 = v.name
-					info.notCheckable = true
-					-- info.disabled = 
-					UIDropDownMenu_AddButton(info, level)
-				end
-			end
-		end
 		
 		local function onClick(self, button)
+			local module = self:GetParent():GetParent().parent
 			if button == "LeftButton" then
 				local Favorites = addon:GetModule("Favorites")
 				if self.isHeader then
@@ -296,6 +266,7 @@ do
 					HandleModifiedItemClick(select(2, GetItemInfo(self.itemID)))
 				end
 			else
+				dropdown.initialize = module.initialize
 				ToggleDropDownMenu(nil, self.itemID, dropdown, self, 0, 0)
 			end
 		end
@@ -507,6 +478,22 @@ do
 			return button
 		end
 
+		local function createHeader(frame)
+			local button = createButton(frame)
+			
+			local label = button:CreateFontString(nil, nil, "GameFontNormal")
+			label:SetJustifyV("TOP")
+			label:SetPoint("TOPLEFT", button.icon, "TOPRIGHT", 4, 0)
+			label:SetPoint("RIGHT", -21, 0)
+			label:SetPoint("BOTTOM", 0, 3)
+			label:SetWordWrap(false)
+			button.label = label
+			button:SetFontString(label)
+			button:SetPushedTextOffset(0, 0)
+			
+			return button
+		end
+
 		local function updateButton(button, object)
 			local isHeader = type(object) == "table"
 			button.categoryLeft:SetShown(isHeader)
@@ -566,7 +553,8 @@ do
 				button.label:SetTextColor(r, g, b)
 				button.icon:SetTexture(icon)
 				button.source:SetText(source)
-				if armorType and slot then
+				-- in some cases armorType is the same as slot, no need to show both
+				if armorType and slot and armorType ~= slot then
 					button.info:SetText(slot..", "..armorType)
 				else
 					button.info:SetText(slot or armorType or "")
@@ -596,8 +584,11 @@ do
 		
 		function Prototype:CreateScrollFrame(name)
 			local scrollFrame = createScrollFrame(self, name, frame.Inset, createButton, onClick, BUTTON_HEIGHT, BUTTON_OFFSET)
-			scrollFrame.updateButton = updateButton
 			scrollFrame.list = getList
+			scrollFrame.updateButton = updateButton
+			scrollFrame.CreateHeader = createHeader
+			scrollFrame:AddHeader()
+			scrollFrame:UpdateHeight()
 			self.scrollFrame = scrollFrame
 			return scrollFrame
 		end
@@ -693,7 +684,8 @@ local function onEditFocusGained(self)
 	self:SetTextColor(1, 1, 1)
 end
 
-function Prototype:CreateSearchBox(name)
+function Prototype:CreateSearchBox()
+	local name = getWidgetName()
 	local searchBox = CreateFrame("EditBox", name, self, "SearchBoxTemplate")
 	-- apparently the textures bug if you don't specify a name, but we don't need it once it's created, so remove it from global namespace
 	_G[name] = nil
@@ -706,7 +698,8 @@ function Prototype:CreateSearchBox(name)
 	return searchBox
 end
 
-function Prototype:CreateEditBox(name)
+function Prototype:CreateEditBox()
+	local name = getWidgetName()
 	local editbox = CreateFrame("EditBox", name, self, "InputBoxTemplate")
 	-- apparently the textures bug if you don't specify a name, but we don't need it once it's created, so remove it from global namespace
 	_G[name] = nil
@@ -764,16 +757,6 @@ function Prototype:UpdateList()
 	-- sort(self:GetList(), listSort)
 	self.scrollFrame:update()
 end
-
-function Prototype:SetFilteredList(list)
-	self.filteredList = list
-	self:UpdateList()
-end
-
--- function addon:ClearFilters()
-	-- self.filteredList = nil
-	-- self:UpdateList()
--- end
 
 function Prototype:SetNavigationList(list)
 	self.navigationScrollFrame.list = list

@@ -36,6 +36,8 @@ local filters = {
 	spec = filterTemplates.bitflagsContain,
 	source = filterTemplates.tableContains,
 	sourceDifficulty = filterTemplates.bitflagsContain,
+	stats = function(value, filterArg)
+	end,
 }
 
 -- exceptions for filters whose names does not match an existing item field
@@ -46,10 +48,22 @@ local exceptions = {
 	maxItemLevel = "itemLevel",
 }
 
-local function FilterApproves(item)
-	item = addon:GetItem(item)
+local function getItemInfo(itemID, filterName)
+	local name, _, quality, iLevel, reqLevel, class, subclass, _, equipSlot = GetItemInfo(itemID)
+	item.itemLevel = iLevel
+	item.reqLevel = reqLevel
+	return item[filterName]
+end
+
+local filterLoaders = {
+	itemLevel = getItemInfo,
+	reqLevel = getItemInfo,
+}
+
+local function FilterApproves(itemID)
+	local item = addon:GetItem(itemID)
 	for filterName, filterArg in pairs(addon:GetSelectedTab().filterArgs) do
-		local value = item[exceptions[filterName] or filterName]
+		local value = item[exceptions[filterName] or filterName] or filterLoaders[filterName](itemID, filterName)
 		if not (value ~= nil and filters[filterName](value, filterArg)) then
 			return false
 		end
@@ -80,3 +94,13 @@ end
 function Prototype:ClearFilter(filter)
 	self.filterArgs[filter] = nil
 end
+
+function Prototype:SetFilteredList(list)
+	self.filteredList = list
+	self:UpdateList()
+end
+
+-- function addon:ClearFilters()
+	-- self.filteredList = nil
+	-- self:UpdateList()
+-- end
