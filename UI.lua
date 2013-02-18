@@ -141,12 +141,19 @@ function addon:GetSelectedTab()
 	return tabs[PanelTemplates_GetSelectedTab(frame)].frame
 end
 
-local doUpdate
-
 do
 	frame:SetWidth(338 + 256+22)
 	
 	frame.Inset:SetPoint("TOPLEFT", 260+22, PANEL_INSET_ATTIC_OFFSET)
+	
+	function Prototype:SetScrollFrameHeaderText(indexOrText, text)
+		local index = indexOrText
+		if not text then
+			index = 1
+			text = indexOrText
+		end
+		self.scrollFrame.headers[index]:SetText(text)
+	end
 	
 	local function getNumVisibleHeaders(self)
 		local numHeaders = #self.headers
@@ -205,7 +212,8 @@ do
 		HybridScrollFrame_Update(self, totalHeight, displayedHeight)
 	end
 	
-	local function createScrollFrame(self, name, inset, createButton, onClick, buttonHeight, buttonOffset)
+	local function createScrollFrame(self, inset, createButton, onClick, buttonHeight, buttonOffset)
+		local name = getWidgetName()
 		local scrollFrame = CreateFrame("ScrollFrame", name, self, "HybridScrollFrameTemplate")
 		scrollFrame:SetPoint("TOP", inset, 0, -4)
 		scrollFrame:SetPoint("LEFT", inset, 4, 0)
@@ -220,6 +228,7 @@ do
 		scrollFrame.update = function()
 			update(scrollFrame)
 		end
+		_G[name] = nil
 		
 		local scrollBar = CreateFrame("Slider", nil, scrollFrame, "HybridScrollBarTemplate")
 		scrollBar:ClearAllPoints()
@@ -528,7 +537,7 @@ do
 						r, g, b = GetItemQualityColor(quality)
 						subclass = not noArmor[equipSlot] and (weaponTypes[subclass] or subclass)
 					else
-						doUpdate = true
+						button:GetParent():GetParent().parent.doUpdateList = true
 					end
 					source = nil
 					armorType = subclass
@@ -582,8 +591,8 @@ do
 			return self.parent:GetList()
 		end
 		
-		function Prototype:CreateScrollFrame(name)
-			local scrollFrame = createScrollFrame(self, name, frame.Inset, createButton, onClick, BUTTON_HEIGHT, BUTTON_OFFSET)
+		function Prototype:CreateScrollFrame()
+			local scrollFrame = createScrollFrame(self, frame.Inset, createButton, onClick, BUTTON_HEIGHT, BUTTON_OFFSET)
 			scrollFrame.list = getList
 			scrollFrame.updateButton = updateButton
 			scrollFrame.CreateHeader = createHeader
@@ -660,13 +669,13 @@ do
 			return button
 		end
 		
-		function Prototype:CreateNavigationFrame(name, onClick)
+		function Prototype:CreateNavigationFrame(onClick)
 			local inset = CreateFrame("Frame", nil, self, "InsetFrameTemplate")
 			inset:SetPoint("TOPLEFT", PANEL_INSET_LEFT_OFFSET, PANEL_INSET_ATTIC_OFFSET)
 			inset:SetPoint("BOTTOM", 0, PANEL_INSET_BOTTOM_OFFSET)
 			inset:SetPoint("RIGHT", self.Inset, "LEFT", PANEL_INSET_RIGHT_OFFSET, 0)
 			
-			local scrollFrame = createScrollFrame(self, name, inset, createButton, onClick, BUTTON_HEIGHT, BUTTON_OFFSET)
+			local scrollFrame = createScrollFrame(self, inset, createButton, onClick, BUTTON_HEIGHT, BUTTON_OFFSET)
 			scrollFrame.CreateHeader = createHeader
 			scrollFrame.onClick = onClick
 			self.navigationScrollFrame = scrollFrame
@@ -715,13 +724,16 @@ function Prototype:CreateEditBox()
 end
 
 local function onUpdate(self)
-	scrollFrame:update()
+	for module in self:IterateModules() do
+		if module.doUpdateList then
+			module.doUpdateList = nil
+			module:UpdateList()
+		end
+	end
 	self:RemoveOnUpdate()
-	doUpdate = nil
 end
 
 addon:RegisterEvent("GET_ITEM_INFO_RECEIVED", function(self)
-	if not doUpdate then return end
 	self:SetOnUpdate(onUpdate)
 end)
 

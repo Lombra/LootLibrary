@@ -1,7 +1,7 @@
 local addonName, addon = ...
 
 local Search = addon:NewModule("Search", addon:CreateUI("Search"))
-Search:CreateScrollFrame("LootLibrarySearchScrollFrame")
+Search:CreateScrollFrame()
 
 function Search:OnShow()
 	addon:GetModule("Browse"):LoadAllTierLoot()

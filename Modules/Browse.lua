@@ -1,7 +1,7 @@
 local addonName, addon = ...
 
 local Browse = addon:NewModule("Browse", addon:CreateUI("Browse"))
-Browse:CreateScrollFrame("LootLibraryBrowseScrollFrame")
+Browse:CreateScrollFrame()
 
 local data = {
 	tiers = {},
@@ -265,6 +265,7 @@ do
 			highlight:UnlockHighlight()
 			highlight = nil
 		end
+		self.scrollFrame.headers[1]:Hide()
 		if object.type == "tiers" then
 			tierButton:Hide()
 			instanceButton:Hide()
@@ -288,12 +289,13 @@ do
 				self:SelectValidDifficulty("encounters", object.id, self:GetNavigationList().isRaid)
 			end
 			self.scrollFrame.headers[1]:SetText(object.list.name)
+			self.scrollFrame.headers[1]:Show()
 			self:SetFilter("source", object.id)
 			self:ApplyFilters()
 		end
 	end
 	
-	local scrollFrame = Browse:CreateNavigationFrame("LootLibraryBrowseNavigationScrollFrame", onClick)
+	local scrollFrame = Browse:CreateNavigationFrame(onClick)
 	scrollFrame.dynamicHeaders = true
 	scrollFrame.updateButton = function(button, object, list)
 		local item = data[list.type][object]
@@ -452,7 +454,8 @@ function Browse:SetSelectedInstance(instanceID)
 	self:ClearFilter("source")
 	self:ApplyFilters()
 	
-	self.scrollFrame.headers[1]:SetText(instance.name)
+	self:SetScrollFrameHeaderText(instance.name)
+	self.scrollFrame.headers[1]:Show()
 end
 
 function Browse:GetSelectedTier()

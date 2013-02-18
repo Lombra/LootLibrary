@@ -112,6 +112,10 @@ function addon:GetModule(name)
 	return modules[name]
 end
 
+function addon:IterateModules()
+	return pairs(modules)
+end
+
 function addon:AddItem(itemID, data)
 	items[itemID] = data
 	tinsert(itemArray, itemID)

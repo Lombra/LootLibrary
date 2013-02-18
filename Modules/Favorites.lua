@@ -1,10 +1,10 @@
 local addonName, addon = ...
 
 local Favorites = addon:NewModule("Favorites", addon:CreateUI("Favorites"))
-Favorites:CreateScrollFrame("LootLibraryFavoritesScrollFrame")
+Favorites:CreateScrollFrame()
 
-do
 	local highlight
+do
 	
 	local function onClick(self)
 		if highlight then
@@ -18,7 +18,7 @@ do
 		end
 	end
 	
-	local scrollFrame = Favorites:CreateNavigationFrame("LootLibraryFavoritesNavigationScrollFrame", onClick)
+	local scrollFrame = Favorites:CreateNavigationFrame(onClick)
 	scrollFrame.updateButton = function(button, object)
 		button:SetText(object.name)
 		button.list = object.items
@@ -68,7 +68,7 @@ Favorites.initialize = function(self, level, menuList)
 		info.text = "Remove from favorites"
 		info.func = onClick1
 		info.arg1 = UIDROPDOWNMENU_MENU_VALUE
-		info.arg2 = v.name
+		info.arg2 = Favorites.db.char.sets[highlight.index].name
 		info.notCheckable = true
 		-- info.disabled = 
 		UIDropDownMenu_AddButton(info)
