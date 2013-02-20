@@ -1,7 +1,9 @@
 local addonName, addon = ...
 
 local Browse = addon:NewModule("Browse", addon:CreateUI("Browse"))
-Browse:CreateScrollFrame()
+local scrollFrame = Browse:CreateScrollFrame()
+scrollFrame:AddHeader()
+scrollFrame:UpdateHeight()
 
 local data = {
 	tiers = {},
@@ -22,87 +24,12 @@ for i = 1, GetNumClasses() do
 	end
 end
 
-local function setGearFilter(self, classID, specID)
-	Browse:LoadAllTierLoot()
-	Browse:LoadSpecData(Browse:GetNavigationList() ~= home and Browse:GetSelectedTier())
-	CloseDropDownMenus(1)
-	Browse:SetFilter("class", classID)
-	Browse:SetFilter("spec", specs[specID])
-	Browse:ApplyFilters()
-end
-
-local CLASS_DROPDOWN = 1
-
 local filterMenu = CreateFrame("Frame")
 filterMenu.displayMode = "MENU"
-filterMenu.initialize = function(self, level)
-	local filterClassID = Browse:GetFilter("class") or 0
-	local filterSpecID = Browse:GetFilter("spec") or 0
-	local classDisplayName, classTag, classID
-	local info = UIDropDownMenu_CreateInfo()
-
-	if (UIDROPDOWNMENU_MENU_VALUE == CLASS_DROPDOWN) then 
-		info.text = ALL_CLASSES
-		info.checked = (filterClassID == 0)
-		info.arg1 = nil
-		info.arg2 = nil
-		info.func = setGearFilter
-		UIDropDownMenu_AddButton(info, level)
-
-		local numClasses = GetNumClasses()
-		for i = 1, numClasses do
-			classDisplayName, classTag, classID = GetClassInfo(i)
-			info.text = classDisplayName
-			info.checked = (filterClassID == classID)
-			info.func = setGearFilter
-			info.arg1 = classID
-			info.arg2 = nil
-			UIDropDownMenu_AddButton(info, level)
-		end
-	end
-
-	if (level == 1) then 
-		info.text = CLASS
-		info.func =  nil
-		info.notCheckable = true
-		info.hasArrow = true
-		info.value = CLASS_DROPDOWN
-		UIDropDownMenu_AddButton(info, level)
-		
-		if filterClassID > 0 then
-			classDisplayName, classTag, classID = GetClassInfoByID(filterClassID)
-		else
-			classDisplayName, classTag, classID = UnitClass("player")
-		end
-		info.text = classDisplayName
-		info.notCheckable = true
-		info.arg1 = nil
-		info.arg2 = nil
-		info.func =  nil
-		info.hasArrow = false
-		UIDropDownMenu_AddButton(info, level)
-		
-		info.notCheckable = nil
-		local numSpecs = GetNumSpecializationsForClassID(classID)
-		for i = 1, numSpecs do
-			local specID, specName = GetSpecializationInfoForClassID(classID, i)
-			info.leftPadding = 10
-			info.text = specName
-			info.checked = (filterSpecID == specID)
-			info.arg1 = classID
-			info.arg2 = specID
-			info.func = setGearFilter
-			UIDropDownMenu_AddButton(info, level)
-		end
-
-		info.text = ALL_SPECS
-		info.leftPadding = 10
-		info.checked = (classID == filterClassID) and (filterSpecID == 0)
-		info.arg1 = classID
-		info.arg2 = nil
-		info.func = setGearFilter
-		UIDropDownMenu_AddButton(info, level)
-	end
+filterMenu.initialize = addon.InitializeGearFilter
+filterMenu.module = Browse
+filterMenu.onClick = function(self, classID, specID)
+	Browse:LoadSpecData(Browse:GetNavigationList() ~= home and Browse:GetSelectedTier())
 end
 
 local filterButton = CreateFrame("Button", "LootLibraryFilter", Browse, "UIMenuButtonStretchTemplate")
@@ -222,7 +149,7 @@ difficultyButton:SetScript("OnClick", function(self)
 end)
 
 local searchBox = Browse:CreateSearchBox("LootLibrarySearchBox")
-searchBox:SetPoint("TOPRIGHT", -16, -32)
+searchBox:SetPoint("TOPRIGHT", -16, -33)
 searchBox:SetSize(128, 20)
 searchBox:SetScript("OnTextChanged", function(self, isUserInput)
 	if not isUserInput then
@@ -279,14 +206,14 @@ do
 			self:SetNavigationList(object.list)
 		elseif object.type == "encounters" then
 			if not self:IsValidDifficulty("instances", object.id) then
-				self:SelectValidDifficulty("instances", object.id, object.list.isRaid)
+				self:SelectValidDifficulty("instances", object.id)
 			end
 			self:SetSelectedInstance(object.id)
 		else
 			highlight = object
 			object:LockHighlight()
 			if not self:IsValidDifficulty("encounters", object.id) then
-				self:SelectValidDifficulty("encounters", object.id, self:GetNavigationList().isRaid)
+				self:SelectValidDifficulty("encounters", object.id)
 			end
 			self.scrollFrame.headers[1]:SetText(object.list.name)
 			self.scrollFrame.headers[1]:Show()
@@ -310,18 +237,15 @@ do
 	homeButton.type = "tiers"
 	homeButton.list = home
 	homeButton:SetText(HOME)
-	homeButton.label:SetFontObject("GameFontNormal")
 
 	tierButton = scrollFrame:AddHeader(onClick)
 	tierButton.type = "instances"
 	tierButton.label:SetPoint("LEFT", 15, 0)
-	tierButton.label:SetFontObject("GameFontNormal")
 	tierButton:Hide()
 
 	instanceButton = scrollFrame:AddHeader(onClick)
 	instanceButton.type = "encounters"
 	instanceButton.label:SetPoint("LEFT", 19, 0)
-	instanceButton.label:SetFontObject("GameFontNormal")
 	instanceButton:Hide()
 end
 
@@ -350,8 +274,14 @@ local function addInstances(tier, isRaid)
 	end
 end
 
+local p
 local function refreshLoot(self)
 	self:SetOnUpdate(self.RefreshLoot)
+	if not p then
+		print(" --- ")
+		print("OnEvent", #addon:GetAllItems())
+		p = true
+	end
 end
 
 function Browse:OnInitialize()
@@ -395,7 +325,7 @@ function Browse:OnShow()
 		if self:IsValidDifficulty("instances", instanceID, difficultyIndex) then
 			self:SetDifficulty(difficultyIndex)
 		else
-			self:SelectValidDifficulty("instances", instanceID, data.instances[instanceID].isRaid)
+			self:SelectValidDifficulty("instances", instanceID)
 		end
 	end
 end
@@ -405,11 +335,12 @@ function Browse:IsValidDifficulty(objectType, objectID, filter)
 	return filter and bit.band(data[objectType][objectID].difficulty, 2 ^ filter) > 0
 end
 
-function Browse:SelectValidDifficulty(objectType, objectID, isRaid)
+-- select the first valid difficulty by going through the flags
+function Browse:SelectValidDifficulty(objectType, objectID)
 	local difficulty = data[objectType][objectID].difficulty
-	for i, v in ipairs(self:GetDifficulties(isRaid)) do
-		if bit.band(difficulty, 2 ^ v.difficultyID) > 0 then
-			self:SetDifficulty(v.difficultyID)
+	for i = 0, difficulty do
+		if bit.band(difficulty, bit.lshift(1, i)) > 0 then
+			self:SetDifficulty(i)
 			break
 		end
 	end
@@ -631,7 +562,7 @@ function Browse:LoadSpecData(index)
 end
 
 function Browse:RefreshLoot()
-	print("refreshloot")
+	p = nil
 	local s, d = debugprofilestop()
 	for i = 1, self:GetNumTiers() do
 		if self:IsTierDataLoaded(i) then
@@ -642,5 +573,6 @@ function Browse:RefreshLoot()
 	end
 	self:UpdateList()
 	self:RemoveOnUpdate()
-	if d then print("refreshLoot", debugprofilestop() - s) end
+	print("OnUpdate", #addon:GetAllItems())
+	if d then print("RefreshLoot", debugprofilestop() - s) end
 end

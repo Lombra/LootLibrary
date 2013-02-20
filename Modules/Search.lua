@@ -131,99 +131,12 @@ armorType.initialize = function(self)
 	end
 end
 
-local specs = {}
-
-local n = 1
-for i = 1, GetNumClasses() do
-	local classDisplayName, classTag, classID = GetClassInfo(i)
-	for i = 1, GetNumSpecializationsForClassID(classID) do
-		specs[GetSpecializationInfoForClassID(classID, i)] = n
-		n = n + 1
-	end
-end
-
-local function EncounterJournal_SetFilter(self, classID, specID)
-	addon:GetModule("Browse"):LoadAllTierLoot()
-	addon:GetModule("Browse"):LoadSpecData()
-	CloseDropDownMenus(1)
-	Search:SetFilter("class", classID)
-	Search:SetFilter("spec", specs[specID])
-	Search:ApplyFilters()
-end
-
-local CLASS_DROPDOWN = 1
-
 local class = CreateFrame("Frame", "LootLibrarySearchClass", Search, "UIDropDownMenuTemplate")
 class:SetPoint("TOP", armorType, "BOTTOM")
-class.initialize = function(self, level)
-	local filterClassID = Search:GetFilter("class") or 0
-	local filterSpecID = Search:GetFilter("spec") or 0
-	local classDisplayName, classTag, classID
-	local info = UIDropDownMenu_CreateInfo()
-	info.keepShownOnClick = nil
-
-	if (UIDROPDOWNMENU_MENU_VALUE == CLASS_DROPDOWN) then 
-		info.text = ALL_CLASSES
-		info.checked = (filterClassID == 0)
-		info.arg1 = nil
-		info.arg2 = nil
-		info.func = EncounterJournal_SetFilter
-		UIDropDownMenu_AddButton(info, level)
-
-		local numClasses = GetNumClasses()
-		for i = 1, numClasses do
-			classDisplayName, classTag, classID = GetClassInfo(i)
-			info.text = classDisplayName
-			info.checked = (filterClassID == classID)
-			info.arg1 = classID
-			info.arg2 = nil
-			info.func = EncounterJournal_SetFilter
-			UIDropDownMenu_AddButton(info, level)
-		end
-	end
-
-	if (level == 1) then 
-		info.text = CLASS
-		info.func =  nil
-		info.notCheckable = true
-		info.hasArrow = true
-		info.value = CLASS_DROPDOWN
-		UIDropDownMenu_AddButton(info, level)
-		
-		if filterClassID > 0 then
-			classDisplayName, classTag, classID = GetClassInfoByID(filterClassID)
-		else
-			classDisplayName, classTag, classID = UnitClass("player")
-		end
-		info.text = classDisplayName
-		info.notCheckable = true
-		info.arg1 = nil
-		info.arg2 = nil
-		info.func =  nil
-		info.hasArrow = false
-		UIDropDownMenu_AddButton(info, level)
-		
-		info.notCheckable = nil
-		local numSpecs = GetNumSpecializationsForClassID(classID)
-		for i = 1, numSpecs do
-			local specID, specName = GetSpecializationInfoForClassID(classID, i)
-			info.leftPadding = 10
-			info.text = specName
-			info.checked = (filterSpecID == specs[specID])
-			info.arg1 = classID
-			info.arg2 = specID
-			info.func = EncounterJournal_SetFilter
-			UIDropDownMenu_AddButton(info, level)
-		end
-
-		info.text = ALL_SPECS
-		info.leftPadding = 10
-		info.checked = (classID == filterClassID) and (filterSpecID == 0)
-		info.arg1 = classID
-		info.arg2 = nil
-		info.func = EncounterJournal_SetFilter
-		UIDropDownMenu_AddButton(info, level)
-	end
+class.initialize = addon.InitializeGearFilter
+class.module = Search
+class.onClick = function()
+	addon:GetModule("Browse"):LoadSpecData()
 end
 
 local filterButton = CreateFrame("Button", "LootLibraryasddads", Search, "UIMenuButtonStretchTemplate")

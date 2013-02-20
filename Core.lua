@@ -128,3 +128,7 @@ end
 function addon:GetAllItems()
 	return itemArray
 end
+
+function addon:HasItem(itemID)
+	return GetItemCount(itemID, true) > 0
+end

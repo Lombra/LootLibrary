@@ -2,6 +2,12 @@ local addonName, addon = ...
 
 local LBI = LibStub("LibBabble-Inventory-3.0"):GetUnstrictLookupTable()
 
+local mt = {
+	__newindex = function(tbl, key, value)
+		rawset(tbl, LBI[key], LBI[value])
+	end
+}
+
 local t = {
 	["Bows"] = "Bow",
 	["Crossbows"] = "Crossbow",
@@ -270,7 +276,11 @@ do
 					end
 					addon:SetList(data)
 				elseif Favorites and IsAltKeyDown() then
-					Favorites:AddItem(self.itemID)
+					if module == Favorites then
+						Favorites:RemoveItem(self.itemID, Favorites:GetSelectedSet())
+					else
+						Favorites:AddItem(self.itemID)
+					end
 				elseif IsModifiedClick() then
 					HandleModifiedItemClick(select(2, GetItemInfo(self.itemID)))
 				end
@@ -317,206 +327,104 @@ do
 			self:SetScript("OnUpdate", nil)
 		end
 		
-		local BUTTON_HEIGHT = 30
-		local BUTTON_OFFSET = 3-3
+		local BUTTON_HEIGHT = 26
+		local BUTTON_OFFSET = 3
 		
-		local function createButton(frame)
+		local function createFrame(frame)
 			local button = CreateFrame("Button", nil, frame)
-			button:SetSize(295, BUTTON_HEIGHT)
-			button:SetScript("OnClick", onClick)
-			button:SetScript("OnEnter", onEnter)
-			button:SetScript("OnLeave", onLeave)
-			button:SetScript("OnEvent", onEvent)
-			button:RegisterEvent("MODIFIER_STATE_CHANGED")
+			button:SetHeight(BUTTON_HEIGHT)
+			button:SetPoint("RIGHT", -5, 0)
+			button:SetPushedTextOffset(0, 0)
 			
-			local stripe = button:CreateTexture(nil, "BACKGROUND")
-			stripe:SetPoint("TOPLEFT", 1, 0)
-			stripe:SetPoint("BOTTOMRIGHT", -1, 0)
-			stripe:SetTexture(1, 1, 1, 0.08)
-			button.stripe = stripe
-			
-			local icon = button:CreateTexture()
-			icon:SetPoint("LEFT", 2, 0)
-			icon:SetSize(15, 15)
-			button.icon = icon
-			
-			local label = button:CreateFontString(nil, "BORDER", "GameFontHighlightLeft")
-			label:SetPoint("LEFT", icon, "RIGHT", 2, 0)
-			button.label = label
-			button:SetFontString(label)
-			
-			local info = button:CreateFontString(nil, nil, "GameFontHighlightSmallRight")
-			info:SetPoint("RIGHT", -3, 0)
-			button.info = info
-			
-			local texture = button:CreateTexture(nil, "BACKGROUND")
-			texture:SetTexture([[Interface\ClassTrainerFrame\TrainerTextures]])
-			texture:SetTexCoord(0.00195313, 0.57421875, 0.65820313, 0.75000000)
-			texture:SetAllPoints()
-			button:SetNormalTexture(texture)
-			
-			local categoryLeft = button:CreateTexture(nil, "BORDER")
-			categoryLeft:SetPoint("LEFT")
-			categoryLeft:SetSize(76, 16)
-			categoryLeft:SetTexture([[Interface\Buttons\CollapsibleHeader]])
-			categoryLeft:SetTexCoord(0.17578125, 0.47265625, 0.29687500, 0.54687500)
-			button.categoryLeft = categoryLeft
-			
-			local categoryRight = button:CreateTexture(nil, "BORDER")
-			categoryRight:SetPoint("RIGHT")
-			categoryRight:SetSize(76, 16)
-			categoryRight:SetTexture([[Interface\Buttons\CollapsibleHeader]])
-			categoryRight:SetTexCoord(0.17578125, 0.47265625, 0.01562500, 0.26562500)
-			button.categoryRight = categoryRight
-			
-			local categoryMiddle = button:CreateTexture(nil, "BORDER")
-			categoryMiddle:SetPoint("LEFT", categoryLeft, "RIGHT", -20, 0)
-			categoryMiddle:SetPoint("RIGHT", categoryRight, "LEFT", 20, 0)
-			categoryMiddle:SetHeight(16)
-			categoryMiddle:SetTexture([[Interface\Buttons\CollapsibleHeader]])
-			categoryMiddle:SetTexCoord(0.48046875, 0.98046875, 0.01562500, 0.26562500)
-			button.categoryMiddle = categoryMiddle
-			
-			local highlight = button:CreateTexture()
-			highlight:SetPoint("TOPLEFT", 3, -2)
-			highlight:SetPoint("BOTTOMRIGHT", -3, 2)
-			highlight:SetTexture([[Interface\TokenFrame\UI-TokenFrame-CategoryButton]])
-			highlight:SetTexCoord(0, 1, 0.609375, 0.796875)
-			-- highlight:SetBlendMode("ADD")
-			button.highlight = highlight
-			button:SetHighlightTexture(highlight)
+			button.label = button:CreateFontString(nil, nil, "GameFontNormal")
+			button.label:SetWordWrap(false)
+			button:SetFontString(button.label)
 			
 			return button
 		end
 		
 		-- frame.Inset:Hide()
 		local function createButton(frame)
-			local button = CreateFrame("Button", nil, frame)
-			button:SetHeight(BUTTON_HEIGHT)
-			button:SetPoint("RIGHT", -5, 0)
+			local button = createFrame(frame)
 			button:SetScript("OnClick", onClick)
 			button:SetScript("OnEnter", onEnter)
 			button:SetScript("OnLeave", onLeave)
 			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+			button:SetHighlightTexture([[Interface\QuestFrame\UI-QuestTitleHighlight]])
 
-			local icon = button:CreateTexture()
-			icon:SetPoint("LEFT", 3, 0)
-			icon:SetSize(24, 24)
-			button.icon = icon
+			button.icon = button:CreateTexture()
+			button.icon:SetPoint("LEFT", 3, 0)
+			button.icon:SetSize(24, 24)
 			
-			local label = button:CreateFontString(nil, "BORDER", "GameFontHighlightLeft")
+			local label = button.label
+			label:SetJustifyH("LEFT")
 			label:SetJustifyV("TOP")
-			label:SetPoint("TOPLEFT", icon, "TOPRIGHT", 4, 0)
+			label:SetPoint("TOP", 0, -1)
+			label:SetPoint("LEFT", button.icon, "TOPRIGHT", 4, 0)
+			-- label:SetPoint("TOPLEFT", button.icon, "TOPRIGHT", 4, 0)
 			label:SetPoint("RIGHT", -21, 0)
 			label:SetPoint("BOTTOM", 0, 3)
-			label:SetWordWrap(false)
-			button.label = label
-			button:SetFontString(label)
-			button:SetPushedTextOffset(0, 0)
 			
-			local source = button:CreateFontString(nil, nil, "GameFontHighlightSmallLeft")
-			source:SetPoint("BOTTOMLEFT", icon, "BOTTOMRIGHT", 4, 0)
-			button.source = source
+			button.source = button:CreateFontString(nil, nil, "GameFontHighlightSmallLeft")
+			button.source:SetPoint("BOTTOMLEFT", button.icon, "BOTTOMRIGHT", 4, 0)
 			
-			local info = button:CreateFontString(nil, nil, "GameFontHighlightSmallRight")
-			info:SetPoint("BOTTOM", icon)
-			info:SetPoint("RIGHT", -3, 0)
-			button.info = info
+			button.info = button:CreateFontString(nil, nil, "GameFontHighlightSmallRight")
+			button.info:SetPoint("BOTTOM", button.icon)
+			button.info:SetPoint("RIGHT", -3, 0)
 			
-			local l = button:CreateTexture(nil, "BACKGROUND")
-			l:SetTexture([[Interface\PetBattles\PetJournal]])
-			l:SetTexCoord(254 / 512, (254 + 24) / 512, 130 / 1024, 178 / 1024)
-			l:SetTexCoord(254 / 512, (254 + 23) / 512, 0.12792969, 0.17285156)
-			l:SetPoint("TOPLEFT")
-			l:SetPoint("BOTTOMLEFT")
-			l:SetWidth(13)
-
-			local r = button:CreateTexture(nil, "BACKGROUND")
-			r:SetTexture([[Interface\PetBattles\PetJournal]])
-			r:SetTexCoord((465 - 24) / 512, 465 / 512, 130 / 1024, 178 / 1024)
-			r:SetTexCoord((465 - 23) / 512, 465 / 512, 0.12792969, 0.17285156)
-			r:SetPoint("TOPRIGHT")
-			r:SetPoint("BOTTOMRIGHT")
-			r:SetWidth(13)
-
-			local m = button:CreateTexture(nil, "BACKGROUND")
-			m:SetTexture([[Interface\PetBattles\PetJournal]])
-			m:SetTexCoord((254 + 24) / 512, (465 - 24) / 512, 130 / 1024, 178 / 1024)
-			m:SetTexCoord((254 + 23) / 512, (465 - 23) / 512, 0.12792969, 0.17285156)
-			m:SetPoint("TOPLEFT", l, "TOPRIGHT")
-			m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT")
+			button.hasItem = button:CreateTexture(nil, "OVERLAY")
+			button.hasItem:SetTexture([[Interface\RaidFrame\ReadyCheck-Ready]])
+			button.hasItem:SetSize(16, 16)
+			button.hasItem:SetPoint("BOTTOMRIGHT", button.icon, -2, 2)
 			
-			-- <Size x="208" y="46"/>
-			-- local texture = button:CreateTexture(nil, "BACKGROUND")
-			-- texture:SetTexture([[Interface\PetBattles\PetJournal]])
-			-- texture:SetTexCoord(0.49804688, 0.90625000, 0.12792969, 0.17285156)
-			-- texture:SetAllPoints()
-			-- button:SetNormalTexture(texture)
-			
-			local categoryLeft = button:CreateTexture(nil, "BORDER")
-			categoryLeft:SetPoint("LEFT")
-			categoryLeft:SetSize(76, 16)
-			categoryLeft:SetTexture([[Interface\Buttons\CollapsibleHeader]])
-			categoryLeft:SetTexCoord(0.17578125, 0.47265625, 0.29687500, 0.54687500)
-			button.categoryLeft = categoryLeft
-			
-			local categoryRight = button:CreateTexture(nil, "BORDER")
-			categoryRight:SetPoint("RIGHT")
-			categoryRight:SetSize(76, 16)
-			categoryRight:SetTexture([[Interface\Buttons\CollapsibleHeader]])
-			categoryRight:SetTexCoord(0.17578125, 0.47265625, 0.01562500, 0.26562500)
-			button.categoryRight = categoryRight
-			
-			local categoryMiddle = button:CreateTexture(nil, "BORDER")
-			categoryMiddle:SetPoint("LEFT", categoryLeft, "RIGHT", -20, 0)
-			categoryMiddle:SetPoint("RIGHT", categoryRight, "LEFT", 20, 0)
-			categoryMiddle:SetHeight(16)
-			categoryMiddle:SetTexture([[Interface\Buttons\CollapsibleHeader]])
-			categoryMiddle:SetTexCoord(0.48046875, 0.98046875, 0.01562500, 0.26562500)
-			button.categoryMiddle = categoryMiddle
-			
-			local highlight = button:CreateTexture()
-			highlight:SetPoint("TOPLEFT", 3, -2)
-			highlight:SetPoint("BOTTOMRIGHT", -3, 2)
-			highlight:SetTexture([[Interface\TokenFrame\UI-TokenFrame-CategoryButton]])
-			highlight:SetTexCoord(0, 1, 0.609375, 0.796875)
-			-- highlight:SetBlendMode("ADD")
-			button.highlight = highlight
-			button:SetHighlightTexture(highlight)
+			-- wishlist:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_1")
 			
 			return button
 		end
 
 		local function createHeader(frame)
-			local button = createButton(frame)
+			local button = createFrame(frame)
 			
-			local label = button:CreateFontString(nil, nil, "GameFontNormal")
-			label:SetJustifyV("TOP")
-			label:SetPoint("TOPLEFT", button.icon, "TOPRIGHT", 4, 0)
-			label:SetPoint("RIGHT", -21, 0)
-			label:SetPoint("BOTTOM", 0, 3)
-			label:SetWordWrap(false)
-			button.label = label
-			button:SetFontString(label)
-			button:SetPushedTextOffset(0, 0)
+			button.label:SetFontObject(GameFontNormalMed3)
+			button.label:SetAllPoints()
+			
+			button.background = button:CreateTexture(nil, "BACKGROUND")
+			button.background:SetAllPoints()
+			button.background:SetTexture([[Interface\EncounterJournal\UI-EncounterJournalTextures_Tile]])
+			button.background:SetTexCoord(0, 1, 0.74804688, 0.84375)
+			
+			-- local categoryLeft = button:CreateTexture(nil, "BORDER")
+			-- categoryLeft:SetPoint("LEFT")
+			-- categoryLeft:SetSize(76, 16)
+			-- categoryLeft:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			-- categoryLeft:SetTexCoord(0.17578125, 0.47265625, 0.29687500, 0.54687500)
+			-- button.categoryLeft = categoryLeft
+			
+			-- local categoryRight = button:CreateTexture(nil, "BORDER")
+			-- categoryRight:SetPoint("RIGHT")
+			-- categoryRight:SetSize(76, 16)
+			-- categoryRight:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			-- categoryRight:SetTexCoord(0.17578125, 0.47265625, 0.01562500, 0.26562500)
+			-- button.categoryRight = categoryRight
+			
+			-- local categoryMiddle = button:CreateTexture(nil, "BORDER")
+			-- categoryMiddle:SetPoint("LEFT", categoryLeft, "RIGHT", -20, 0)
+			-- categoryMiddle:SetPoint("RIGHT", categoryRight, "LEFT", 20, 0)
+			-- categoryMiddle:SetHeight(16)
+			-- categoryMiddle:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			-- categoryMiddle:SetTexCoord(0.48046875, 0.98046875, 0.01562500, 0.26562500)
+			-- button.categoryMiddle = categoryMiddle
 			
 			return button
 		end
 
 		local function updateButton(button, object)
 			local isHeader = type(object) == "table"
-			button.categoryLeft:SetShown(isHeader)
-			button.categoryRight:SetShown(isHeader)
-			button.categoryMiddle:SetShown(isHeader)
 			if isHeader then
 				button.info:SetText("")
 				button.icon:SetTexture("")
-				button.highlight:SetTexture([[Interface\TokenFrame\UI-TokenFrame-CategoryButton]])
-				button.highlight:SetPoint("TOPLEFT", 3, -2)
-				button.highlight:SetPoint("BOTTOMRIGHT", -3, 2)
 				button.label:SetText(object.name)
 				button.label:SetFontObject("GameFontNormal")
-				button.label:SetPoint("LEFT", 11, 0)
 				button.itemID = nil
 			else
 				local itemName, icon, source, armorType, slot
@@ -558,6 +466,7 @@ do
 						-- addon:AddItem(object, item)
 					-- end
 				-- end
+				button.hasItem:SetShown(addon:HasItem(object))
 				button.label:SetText(itemName)
 				button.label:SetTextColor(r, g, b)
 				button.icon:SetTexture(icon)
@@ -568,10 +477,6 @@ do
 				else
 					button.info:SetText(slot or armorType or "")
 				end
-				button.label:SetPoint("LEFT", button.icon, "RIGHT", 4, 0)
-				button.highlight:SetTexture([[Interface\QuestFrame\UI-QuestTitleHighlight]])
-				button.highlight:SetPoint("TOPLEFT")
-				button.highlight:SetPoint("BOTTOMRIGHT")
 				button.itemID = object
 			end
 			
@@ -596,8 +501,6 @@ do
 			scrollFrame.list = getList
 			scrollFrame.updateButton = updateButton
 			scrollFrame.CreateHeader = createHeader
-			scrollFrame:AddHeader()
-			scrollFrame:UpdateHeight()
 			self.scrollFrame = scrollFrame
 			return scrollFrame
 		end
@@ -611,59 +514,57 @@ do
 			Browse:SetNavigationList(self)
 		end
 		
-		local function createButton(frame, onClick)
+		local function createButtonBase(frame, onClick)
 			local button = CreateFrame("Button", nil, frame)
 			button:SetHeight(BUTTON_HEIGHT)
 			button:SetPoint("RIGHT", -5, 0)
 			button:SetScript("OnClick", onClick)
-			
-			local label = button:CreateFontString(nil, nil, "GameFontHighlightLeft")
-			label:SetPoint("LEFT", 11, 0)
-			button.label = label
-			button:SetFontString(label)
 			button:SetPushedTextOffset(0, 0)
 			
-			local highlight = button:CreateTexture()
-			-- highlight:SetAllPoints()
-			highlight:SetTexture([[Interface\QuestFrame\UI-QuestTitleHighlight]])
-			highlight:SetTexCoord(0, 1, 0.609375, 0.796875)
-			button.highlight = highlight
+			button.label = button:CreateFontString(nil, nil, "GameFontHighlightLeft")
+			button.label:SetPoint("LEFT", 11, 0)
+			button:SetFontString(button.label)
+			
+			return button
+		end
+		
+		local function createButton(frame, onClick)
+			local button = createButtonBase(frame, onClick)
+			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 			button:SetHighlightTexture([[Interface\QuestFrame\UI-QuestTitleHighlight]])
 			
 			return button
 		end
 		
 		local function createHeader(frame)
-			local button = createButton(frame, frame.onClick)
+			local button = createButtonBase(frame, frame.onClick)
 			
-			local categoryLeft = button:CreateTexture(nil, "BORDER")
-			categoryLeft:SetPoint("LEFT")
-			categoryLeft:SetSize(76, 16)
-			categoryLeft:SetTexture([[Interface\Buttons\CollapsibleHeader]])
-			categoryLeft:SetTexCoord(0.17578125, 0.47265625, 0.29687500, 0.54687500)
-			button.categoryLeft = categoryLeft
+			button:SetNormalFontObject(GameFontNormal)
 			
-			local categoryRight = button:CreateTexture(nil, "BORDER")
-			categoryRight:SetPoint("RIGHT")
-			categoryRight:SetSize(76, 16)
-			categoryRight:SetTexture([[Interface\Buttons\CollapsibleHeader]])
-			categoryRight:SetTexCoord(0.17578125, 0.47265625, 0.01562500, 0.26562500)
-			button.categoryRight = categoryRight
+			local left = button:CreateTexture(nil, "BORDER")
+			left:SetPoint("LEFT")
+			left:SetSize(76, 16)
+			left:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			left:SetTexCoord(0.17578125, 0.47265625, 0.29687500, 0.54687500)
 			
-			local categoryMiddle = button:CreateTexture(nil, "BORDER")
-			categoryMiddle:SetPoint("LEFT", categoryLeft, "RIGHT", -20, 0)
-			categoryMiddle:SetPoint("RIGHT", categoryRight, "LEFT", 20, 0)
-			categoryMiddle:SetHeight(16)
-			categoryMiddle:SetTexture([[Interface\Buttons\CollapsibleHeader]])
-			categoryMiddle:SetTexCoord(0.48046875, 0.98046875, 0.01562500, 0.26562500)
-			button.categoryMiddle = categoryMiddle
+			local right = button:CreateTexture(nil, "BORDER")
+			right:SetPoint("RIGHT")
+			right:SetSize(76, 16)
+			right:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			right:SetTexCoord(0.17578125, 0.47265625, 0.01562500, 0.26562500)
+			
+			local middle = button:CreateTexture(nil, "BORDER")
+			middle:SetPoint("LEFT", left, "RIGHT", -20, 0)
+			middle:SetPoint("RIGHT", right, "LEFT", 20, 0)
+			middle:SetHeight(16)
+			middle:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			middle:SetTexCoord(0.48046875, 0.98046875, 0.01562500, 0.26562500)
 			
 			local highlight = button:CreateTexture()
 			highlight:SetPoint("TOPLEFT", 3, -2)
 			highlight:SetPoint("BOTTOMRIGHT", -3, 2)
 			highlight:SetTexture([[Interface\TokenFrame\UI-TokenFrame-CategoryButton]])
 			highlight:SetTexCoord(0, 1, 0.609375, 0.796875)
-			button.highlight = highlight
 			button:SetHighlightTexture(highlight)
 			
 			return button
@@ -724,7 +625,7 @@ function Prototype:CreateEditBox()
 end
 
 local function onUpdate(self)
-	for module in self:IterateModules() do
+	for k, module in self:IterateModules() do
 		if module.doUpdateList then
 			module.doUpdateList = nil
 			module:UpdateList()
@@ -751,8 +652,9 @@ function Prototype:GetList(raw)
 end
 
 local sortOrder = {
-	"slot",
+	"quality",
 	"armorType",
+	"slot",
 	"name",
 }
 
