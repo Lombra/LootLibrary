@@ -8,6 +8,7 @@ local mt = {
 	end
 }
 
+-- GetItemInfo doesn't give the same info as the EJ API, we change GII returns into EJ format
 local t = {
 	["Bows"] = "Bow",
 	["Crossbows"] = "Crossbow",
@@ -375,7 +376,7 @@ do
 			button.hasItem = button:CreateTexture(nil, "OVERLAY")
 			button.hasItem:SetTexture([[Interface\RaidFrame\ReadyCheck-Ready]])
 			button.hasItem:SetSize(16, 16)
-			button.hasItem:SetPoint("BOTTOMRIGHT", button.icon, -2, 2)
+			button.hasItem:SetPoint("TOPRIGHT", -2, 2)
 			
 			-- wishlist:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_1")
 			
@@ -448,7 +449,9 @@ do
 						button:GetParent():GetParent().parent.doUpdateList = true
 					end
 					source = nil
-					armorType = subclass
+					if class == LBI["Armor"] or class == LBI["Weapon"] then
+						armorType = subclass
+					end
 					slot = _G[equipSlot]
 				end
 				-- if not item then
@@ -651,25 +654,80 @@ function Prototype:GetList(raw)
 	return not raw and self.filteredList or self.list
 end
 
-local sortOrder = {
+local sortPriority = {
 	"quality",
 	"armorType",
 	"slot",
 	"name",
+	"itemLevel",
+}
+
+local sortAscending = {
+	name = true,
+	slot = true,
+	armorType = true,
+}
+
+local customSort = {
+	slot = {
+		[INVTYPE_2HWEAPON] = 0.1,
+		[INVTYPE_WEAPONMAINHAND] = 0.2,
+		[INVTYPE_WEAPONOFFHAND] = 0.3,
+		[INVTYPE_WEAPON] = 0.4,
+		[INVTYPE_RANGED] = 0.5,
+		[INVTYPE_SHIELD] = 0.6,
+		[INVTYPE_HOLDABLE] = 0.7,
+		[LBI["Head"]] = 1,
+		[LBI["Neck"]] = 2,
+		[LBI["Shoulder"]] = 3,
+		[INVTYPE_CLOAK] = 3.5,
+		[LBI["Chest"]] = 4,
+		[LBI["Shirt"]] = 5,
+		[LBI["Tabard"]] = 6,
+		[LBI["Wrist"]] = 7,
+		[LBI["Hands"]] = 8,
+		[LBI["Waist"]] = 9,
+		[LBI["Legs"]] = 10,
+		[LBI["Feet"]] = 11,
+		[INVTYPE_FINGER] = 12,
+		[LBI["Trinket"]] = 13,
+	},
+	armorType = {
+		[LBI["Plate"]] = 1,
+		[LBI["Mail"]] = 2,
+		[LBI["Leather"]] = 3,
+		[LBI["Cloth"]] = 4,
+	},
 }
 
 local function listSort(a, b)
 	a, b = items[a], items[b]
-	for i, v in ipairs(sortOrder) do
+	if not (a and b) then return end
+	for i, v in ipairs(sortPriority) do
 		if a[v] ~= b[v] then
-			return (a[v] and b[v]) and a[v] > b[v]
+			if sortAscending[v] then
+				a, b = b, a
+			end
+			if not (a[v] and b[v]) then
+				return a[v]
+			end
+			if customSort[v] then
+				if not (customSort[v][a[v]] and customSort[v][b[v]]) then
+					return customSort[v][a[v]]
+				end
+				return customSort[v][a[v]] > customSort[v][b[v]]
+			end
+			return a[v] > b[v]
 		end
 	end
 end
 
 function Prototype:UpdateList()
-	-- sort(self:GetList(), listSort)
+	sort(self:GetList(), listSort)
 	self.scrollFrame:update()
+	if self.OnUpdateList then
+		self:OnUpdateList()
+	end
 end
 
 function Prototype:SetNavigationList(list)

@@ -50,6 +50,7 @@ local exceptions = {
 
 local function getItemInfo(itemID, filterName)
 	local name, _, quality, iLevel, reqLevel, class, subclass, _, equipSlot = GetItemInfo(itemID)
+	local item = addon:GetItem(itemID)
 	item.itemLevel = iLevel
 	item.reqLevel = reqLevel
 	return item[filterName]
@@ -63,7 +64,7 @@ local filterLoaders = {
 local function FilterApproves(itemID)
 	local item = addon:GetItem(itemID)
 	for filterName, filterArg in pairs(addon:GetSelectedTab().filterArgs) do
-		local value = item[exceptions[filterName] or filterName] or filterLoaders[filterName](itemID, filterName)
+		local value = item[exceptions[filterName] or filterName] or (filterLoaders[exceptions[filterName] or filterName] and filterLoaders[exceptions[filterName] or filterName](itemID, filterName))
 		if not (value ~= nil and filters[filterName](value, filterArg)) then
 			return false
 		end

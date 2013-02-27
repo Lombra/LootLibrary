@@ -11,6 +11,13 @@ end
 function Search:OnHide()
 end
 
+local numResults = Search:CreateFontString(nil, nil, "GameFontHighlightSmall")
+numResults:SetPoint("TOPRIGHT", -16, -40)
+
+function Search:OnUpdateList()
+	numResults:SetFormattedText("%d results.", #self:GetList())
+end
+
 local nameFilter = Search:CreateSearchBox()
 nameFilter:SetPoint("TOPLEFT", 24, -80)
 nameFilter:SetSize(100, 20)
@@ -29,9 +36,20 @@ nameFilter:SetScript("OnTextChanged", function(self, isUserInput)
 end)
 
 local function onEnterPressed(self)
-	Search:SetFilter(self.filter, self:GetNumber())
+	local value = self:GetNumber()
+	if value == 0 then
+		value = nil
+	end
+	Search:SetFilter(self.filter, value)
 	Search:ApplyFilters()
 	self:ClearFocus()
+end
+
+local function dash(left, right)
+	local dash = Search:CreateFontString(nil, nil, "ChatFontSmall")
+	dash:SetPoint("LEFT", left, "RIGHT")
+	dash:SetPoint("RIGHT", right, "LEFT", -2, 0)
+	dash:SetText("-")
 end
 
 local minLevel = Search:CreateEditBox()
@@ -42,11 +60,16 @@ minLevel:SetScript("OnEnterPressed", onEnterPressed)
 minLevel.filter = "minReqLevel"
 
 local maxLevel = Search:CreateEditBox()
-maxLevel:SetPoint("LEFT", minLevel, "RIGHT", 36, 0)
+maxLevel:SetPoint("LEFT", minLevel, "RIGHT", 16, 0)
 maxLevel:SetSize(32, 20)
 maxLevel:SetNumeric(true)
 maxLevel:SetScript("OnEnterPressed", onEnterPressed)
 maxLevel.filter = "maxReqLevel"
+
+local reqLevelLabel = Search:CreateFontString(nil, nil, "GameFontNormalSmall")
+reqLevelLabel:SetPoint("BOTTOMLEFT", minLevel, "TOPLEFT")
+reqLevelLabel:SetText("Required level")
+dash(minLevel, maxLevel)
 
 local minItemLevel = Search:CreateEditBox()
 minItemLevel:SetPoint("TOPLEFT", minLevel, "BOTTOMLEFT", 0, -16)
@@ -56,14 +79,18 @@ minItemLevel:SetScript("OnEnterPressed", onEnterPressed)
 minItemLevel.filter = "minItemLevel"
 
 local maxItemLevel = Search:CreateEditBox()
-maxItemLevel:SetPoint("LEFT", minItemLevel, "RIGHT", 36, 0)
+maxItemLevel:SetPoint("LEFT", minItemLevel, "RIGHT", 16, 0)
 maxItemLevel:SetSize(32, 20)
 maxItemLevel:SetNumeric(true)
 maxItemLevel:SetScript("OnEnterPressed", onEnterPressed)
 maxItemLevel.filter = "maxItemLevel"
 
+local itemLevelLabel = Search:CreateFontString(nil, nil, "GameFontNormalSmall")
+itemLevelLabel:SetPoint("BOTTOMLEFT", minItemLevel, "TOPLEFT")
+itemLevelLabel:SetText("Item level")
+dash(minItemLevel, maxItemLevel)
+
 local slots = {
-	INVTYPE_BAG, -- "Bag"
 	INVTYPE_2HWEAPON, -- "Two-Hand"
 	INVTYPE_WEAPONMAINHAND, -- "Main Hand"
 	INVTYPE_WEAPON, -- "One-Hand"
@@ -97,7 +124,7 @@ local function onClick(self, slot)
 end
 
 local slot = CreateFrame("Frame", "LootLibrarySearchSlot", Search, "UIDropDownMenuTemplate")
-slot:SetPoint("TOPLEFT", minItemLevel, "BOTTOMLEFT", -22, -8)
+slot:SetPoint("TOPLEFT", minItemLevel, "BOTTOMLEFT", -22, -16)
 slot.initialize = function(self)
 	local currentSlot = Search:GetFilter("slot")
 	for i, v in ipairs(slots) do
@@ -110,6 +137,10 @@ slot.initialize = function(self)
 	end
 end
 
+local label = slot:CreateFontString(nil, "BACKGROUND", "GameFontNormalSmall")
+label:SetPoint("BOTTOMLEFT", slot, "TOPLEFT", 16, 3)
+label:SetText("Slot")
+
 local armorClass = {GetAuctionItemSubClasses(2)}
 
 local function onClick(self, armorType)
@@ -118,7 +149,7 @@ local function onClick(self, armorType)
 end
 
 local armorType = CreateFrame("Frame", "LootLibrarySearchArmorType", Search, "UIDropDownMenuTemplate")
-armorType:SetPoint("TOP", slot, "BOTTOM")
+armorType:SetPoint("TOP", slot, "BOTTOM", 0, -16)
 armorType.initialize = function(self)
 	local currentSlot = Search:GetFilter("armorType")
 	for i, v in ipairs(armorClass) do
@@ -131,17 +162,25 @@ armorType.initialize = function(self)
 	end
 end
 
+local label = armorType:CreateFontString(nil, "BACKGROUND", "GameFontNormalSmall")
+label:SetPoint("BOTTOMLEFT", armorType, "TOPLEFT", 16, 3)
+label:SetText("Armor type")
+
 local class = CreateFrame("Frame", "LootLibrarySearchClass", Search, "UIDropDownMenuTemplate")
-class:SetPoint("TOP", armorType, "BOTTOM")
+class:SetPoint("TOP", armorType, "BOTTOM", 0, -16)
 class.initialize = addon.InitializeGearFilter
 class.module = Search
 class.onClick = function()
 	addon:GetModule("Browse"):LoadSpecData()
 end
 
+local label = class:CreateFontString(nil, "BACKGROUND", "GameFontNormalSmall")
+label:SetPoint("BOTTOMLEFT", class, "TOPLEFT", 16, 3)
+label:SetText("Gear filter")
+
 local filterButton = CreateFrame("Button", "LootLibraryasddads", Search, "UIMenuButtonStretchTemplate")
 filterButton:SetWidth(48)
-filterButton:SetPoint("TOP", class, "BOTTOM")
+filterButton:SetPoint("TOP", class, "BOTTOM", 22, 0)
 filterButton:SetText("GO")
 filterButton:SetScript("OnClick", function(self)
 	local stats = {}
