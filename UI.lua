@@ -44,6 +44,17 @@ local noArmor = {
 	INVTYPE_TRINKET = true,
 }
 
+-- do not display a slot for items of these types
+local noSlot = {
+	[LBI["Polearm"]] = true,
+	[LBI["Staff"]] = true,
+	[LBI["Wand"]] = true,
+	[LBI["Gun"]] = true,
+	[LBI["Crossbow"]] = true,
+	[LBI["Bow"]] = true,
+	[LBI["Shield"]] = true,
+}
+
 local widgetIndex = 1
 local function getWidgetName()
 	local name = addonName.."Widget"..widgetIndex
@@ -428,20 +439,18 @@ do
 				button.label:SetFontObject("GameFontNormal")
 				button.itemID = nil
 			else
-				local itemName, icon, source, armorType, slot
+				local itemName, source, armorType, slot
 				local item = addon:GetItem(object)
 				local r, g, b = RED_FONT_COLOR.r, RED_FONT_COLOR.g, RED_FONT_COLOR.b
 				if item then
 					itemName = item.name
-					icon = item.icon
 					r, g, b = GetItemQualityColor(item.quality)
 					source = EJ_GetEncounterInfo(next(item.source))
-					armorType = item.armorType
-					slot = item.slot
+					slot = not noSlot[item.type] and item.slot
+					armorType = not noArmor[slot] and item.type
 				else
 					local name, _, quality, iLevel, reqLevel, class, subclass, _, equipSlot = GetItemInfo(object)
 					itemName = name or RETRIEVING_ITEM_INFO
-					icon = GetItemIcon(object)
 					if name then
 						r, g, b = GetItemQualityColor(quality)
 						subclass = not noArmor[equipSlot] and (weaponTypes[subclass] or subclass)
@@ -472,8 +481,9 @@ do
 				button.hasItem:SetShown(addon:HasItem(object))
 				button.label:SetText(itemName)
 				button.label:SetTextColor(r, g, b)
-				button.icon:SetTexture(icon)
+				button.icon:SetTexture(GetItemIcon(object))
 				button.source:SetText(source)
+				slot = _G[slot]
 				-- in some cases armorType is the same as slot, no need to show both
 				if armorType and slot and armorType ~= slot then
 					button.info:SetText(slot..", "..armorType)
@@ -656,8 +666,8 @@ end
 
 local sortPriority = {
 	"quality",
-	"armorType",
 	"slot",
+	"type",
 	"name",
 	"itemLevel",
 }
@@ -665,40 +675,50 @@ local sortPriority = {
 local sortAscending = {
 	name = true,
 	slot = true,
-	armorType = true,
+	type = true,
 }
 
 local customSort = {
 	slot = {
-		[INVTYPE_2HWEAPON] = 0.1,
-		[INVTYPE_WEAPONMAINHAND] = 0.2,
-		[INVTYPE_WEAPONOFFHAND] = 0.3,
-		[INVTYPE_WEAPON] = 0.4,
-		[INVTYPE_RANGED] = 0.5,
-		[INVTYPE_SHIELD] = 0.6,
-		[INVTYPE_HOLDABLE] = 0.7,
-		[LBI["Head"]] = 1,
-		[LBI["Neck"]] = 2,
-		[LBI["Shoulder"]] = 3,
-		[INVTYPE_CLOAK] = 3.5,
-		[LBI["Chest"]] = 4,
-		[LBI["Shirt"]] = 5,
-		[LBI["Tabard"]] = 6,
-		[LBI["Wrist"]] = 7,
-		[LBI["Hands"]] = 8,
-		[LBI["Waist"]] = 9,
-		[LBI["Legs"]] = 10,
-		[LBI["Feet"]] = 11,
-		[INVTYPE_FINGER] = 12,
-		[LBI["Trinket"]] = 13,
+		"INVTYPE_2HWEAPON",
+		"INVTYPE_WEAPONMAINHAND",
+		"INVTYPE_WEAPONOFFHAND",
+		"INVTYPE_WEAPON",
+		"INVTYPE_RANGED",
+		"INVTYPE_SHIELD",
+		"INVTYPE_HOLDABLE",
+		"INVTYPE_HEAD",
+		"INVTYPE_NECK",
+		"INVTYPE_SHOULDER",
+		"INVTYPE_CLOAK",
+		"INVTYPE_CHEST",
+		"INVTYPE_BODY",
+		"INVTYPE_TABARD",
+		"INVTYPE_WRIST",
+		"INVTYPE_HAND",
+		"INVTYPE_WAIST",
+		"INVTYPE_LEGS",
+		"INVTYPE_FEET",
+		"INVTYPE_FINGER",
+		"INVTYPE_TRINKET",
 	},
-	armorType = {
-		[LBI["Plate"]] = 1,
-		[LBI["Mail"]] = 2,
-		[LBI["Leather"]] = 3,
-		[LBI["Cloth"]] = 4,
+	type = {
+		LBI["Plate"],
+		LBI["Mail"],
+		LBI["Leather"],
+		LBI["Cloth"],
+		LBI["Miscellaneous"],
 	},
 }
+
+-- reverse the tables for easier use
+for k, v in pairs(customSort) do
+	local t = {}
+	for i, v in ipairs(v) do
+		t[v] = i
+	end
+	customSort[k] = t
+end
 
 local function listSort(a, b)
 	a, b = items[a], items[b]

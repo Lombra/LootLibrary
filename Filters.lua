@@ -31,7 +31,7 @@ local filters = {
 	minItemLevel = filterTemplates.greaterorequal,
 	maxItemLevel = filterTemplates.lessorequal,
 	slot = filterTemplates.equals,
-	armorType = filterTemplates.equals,
+	type = filterTemplates.equals,
 	class = filterTemplates.bitflagsContain,
 	spec = filterTemplates.bitflagsContain,
 	source = filterTemplates.tableContains,
@@ -101,10 +101,11 @@ function Prototype:SetFilteredList(list)
 	self:UpdateList()
 end
 
--- function addon:ClearFilters()
-	-- self.filteredList = nil
+function Prototype:ClearFilters()
+	wipe(self.filterArgs)
+	self.filteredList = nil
 	-- self:UpdateList()
--- end
+end
 
 local specs = {}
 

@@ -6,6 +6,7 @@ Search:CreateScrollFrame()
 function Search:OnShow()
 	addon:GetModule("Browse"):LoadAllTierLoot()
 	self:SetList(addon:GetAllItems())
+	self.OnShow = nil
 end
 
 function Search:OnHide()
@@ -91,31 +92,28 @@ itemLevelLabel:SetText("Item level")
 dash(minItemLevel, maxItemLevel)
 
 local slots = {
-	INVTYPE_2HWEAPON, -- "Two-Hand"
-	INVTYPE_WEAPONMAINHAND, -- "Main Hand"
-	INVTYPE_WEAPON, -- "One-Hand"
-	-- INVTYPE_WEAPONOFFHAND, -- "Off Hand"
-	INVTYPE_RANGED, -- "Ranged"
-	-- INVTYPE_RANGEDRIGHT, -- "Ranged"
-	INVTYPE_SHIELD, -- "Off Hand"
-	INVTYPE_HOLDABLE, -- "Held In Off-hand"
-	INVTYPE_HEAD, -- "Head"
-	INVTYPE_NECK, -- "Neck"
-	INVTYPE_SHOULDER, -- "Shoulder"
-	INVTYPE_CLOAK, -- "Back"
-	INVTYPE_CHEST, -- "Chest"
-	-- INVTYPE_ROBE, -- "Chest"
-	INVTYPE_BODY, -- "Shirt"
-	INVTYPE_TABARD, -- "Tabard"
-	INVTYPE_WRIST, -- "Wrist"
-	INVTYPE_HAND, -- "Hands"
-	INVTYPE_WAIST, -- "Waist"
-	INVTYPE_LEGS, -- "Legs"
-	INVTYPE_FEET, -- "Feet"
-	INVTYPE_FINGER, -- "Finger"
-	INVTYPE_TRINKET, -- "Trinket"
-	-- INVTYPE_THROWN, -- "Thrown"
-	-- INVTYPE_QUIVER, -- "Quiver"
+	"INVTYPE_2HWEAPON", -- "Two-Hand"
+	"INVTYPE_WEAPONMAINHAND", -- "Main Hand"
+	"INVTYPE_WEAPONOFFHAND", -- "Off Hand"
+	"INVTYPE_WEAPON", -- "One-Hand"
+	"INVTYPE_RANGED", -- "Ranged"
+	"INVTYPE_SHIELD", -- "Off Hand"
+	"INVTYPE_HOLDABLE", -- "Held In Off-hand"
+	"INVTYPE_HEAD", -- "Head"
+	"INVTYPE_NECK", -- "Neck"
+	"INVTYPE_SHOULDER", -- "Shoulder"
+	"INVTYPE_CLOAK", -- "Back"
+	"INVTYPE_CHEST", -- "Chest"
+	"INVTYPE_BODY", -- "Shirt"
+	"INVTYPE_TABARD", -- "Tabard"
+	"INVTYPE_WRIST", -- "Wrist"
+	"INVTYPE_HAND", -- "Hands"
+	"INVTYPE_WAIST", -- "Waist"
+	"INVTYPE_LEGS", -- "Legs"
+	"INVTYPE_FEET", -- "Feet"
+	"INVTYPE_FINGER", -- "Finger"
+	"INVTYPE_TRINKET", -- "Trinket"
+	-- "INVTYPE_THROWN", -- "Thrown"
 }
 
 local function onClick(self, slot)
@@ -127,9 +125,14 @@ local slot = CreateFrame("Frame", "LootLibrarySearchSlot", Search, "UIDropDownMe
 slot:SetPoint("TOPLEFT", minItemLevel, "BOTTOMLEFT", -22, -16)
 slot.initialize = function(self)
 	local currentSlot = Search:GetFilter("slot")
+	local info = UIDropDownMenu_CreateInfo()
+	info.text = "Any"
+	info.func = onClick
+	info.checked = not currentSlot
+	UIDropDownMenu_AddButton(info)
 	for i, v in ipairs(slots) do
 		local info = UIDropDownMenu_CreateInfo()
-		info.text = v
+		info.text = _G[v]
 		info.func = onClick
 		info.arg1 = v
 		info.checked = v == currentSlot
@@ -144,14 +147,19 @@ label:SetText("Slot")
 local armorClass = {GetAuctionItemSubClasses(2)}
 
 local function onClick(self, armorType)
-	Search:SetFilter("armorType", armorType)
+	Search:SetFilter("type", armorType)
 	Search:ApplyFilters()
 end
 
 local armorType = CreateFrame("Frame", "LootLibrarySearchArmorType", Search, "UIDropDownMenuTemplate")
 armorType:SetPoint("TOP", slot, "BOTTOM", 0, -16)
 armorType.initialize = function(self)
-	local currentSlot = Search:GetFilter("armorType")
+	local currentSlot = Search:GetFilter("type")
+	local info = UIDropDownMenu_CreateInfo()
+	info.text = "Any"
+	info.func = onClick
+	info.checked = not currentSlot
+	UIDropDownMenu_AddButton(info)
 	for i, v in ipairs(armorClass) do
 		local info = UIDropDownMenu_CreateInfo()
 		info.text = v
@@ -195,4 +203,13 @@ filterButton:SetScript("OnClick", function(self)
 		wipe(stats)
 	end
 	Search:UpdateList()
+end)
+
+local filterButton = CreateFrame("Button", "LootLibrarySearchClearAllFilters", Search, "UIMenuButtonStretchTemplate")
+filterButton:SetWidth(48)
+filterButton:SetPoint("TOP", LootLibraryasddads, "BOTTOM", 0, -16)
+filterButton:SetText("Reset")
+filterButton:SetScript("OnClick", function(self)
+	Search:ClearFilters()
+	Search:ApplyFilters()
 end)

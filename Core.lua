@@ -1,15 +1,62 @@
 local addonName, addon = ...
 
-LootLibrary = addon
+local LBI = LibStub("LibBabble-Inventory-3.0"):GetUnstrictLookupTable()
 
-BINDING_HEADER_LOOT_LIBRARY = "LootLibrary"
-BINDING_NAME_LOOT_LIBRARY_TOGGLE = "Toggle LootLibrary"
+-- GetItemInfo doesn't give the same info as the EJ API, we change GII returns into EJ format
+local t = {
+	["Bows"] = "Bow",
+	["Crossbows"] = "Crossbow",
+	["Daggers"] = "Dagger",
+	["Fist Weapons"] = "Fist Weapon",
+	["Guns"] = "Gun",
+	["One-Handed Axes"] = "Axe",
+	["One-Handed Maces"] = "Mace",
+	["One-Handed Swords"] = "Sword",
+	["Polearms"] = "Polearm",
+	["Shields"] = "Shield",
+	["Staves"] = "Staff",
+	["Two-Handed Axes"] = "Axe",
+	["Two-Handed Maces"] = "Mace",
+	["Two-Handed Swords"] = "Sword",
+	["Wands"] = "Wand",
+}
+
+local weaponTypes = {}
+
+for k, v in pairs(t) do
+	weaponTypes[LBI[k]] = LBI[v]
+end
+
+t = nil
+
+-- do not display an armor type for items that go into these slots
+local noArmor = {
+	INVTYPE_CLOAK = true,
+	INVTYPE_FINGER = true,
+	INVTYPE_HOLDABLE = true,
+	INVTYPE_NECK = true,
+	INVTYPE_TRINKET = true,
+}
+
+local invTypeExceptions = {
+	INVTYPE_ROBE = "INVTYPE_CHEST",
+	INVTYPE_RANGEDRIGHT = "INVTYPE_RANGED",
+}
+
+local noType = {
+	[LBI["Junk"]] = true,
+}
 
 local itemArray = {}
 local items = {}
 addon.items = items
 
 local modules = {}
+
+LootLibrary = addon
+
+BINDING_HEADER_LOOT_LIBRARY = "LootLibrary"
+BINDING_NAME_LOOT_LIBRARY_TOGGLE = "Toggle LootLibrary"
 
 SlashCmdList["LOOT_LIBRARY"] = function(msg)
 	ToggleFrame(addon.frame)
@@ -119,6 +166,17 @@ end
 function addon:AddItem(itemID, data)
 	items[itemID] = data
 	tinsert(itemArray, itemID)
+end
+
+function addon:AddItemInfo(itemID)
+	local item = self:GetItem(itemID)
+	local name, _, quality, iLevel, reqLevel, class, subclass, _, slot = GetItemInfo(itemID)
+	item.name = name
+	item.quality = quality
+	item.slot = _G[slot] and (invTypeExceptions[slot] or slot)
+	item.type = not (noArmor[slot] or noType[subclass]) and (weaponTypes[subclass] or subclass)
+	-- item.itemLevel = iLevel
+	-- item.reqLevel = reqLevel
 end
 
 function addon:GetItem(itemID)

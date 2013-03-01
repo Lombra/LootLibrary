@@ -284,6 +284,25 @@ local function refreshLoot(self)
 	end
 end
 
+function Browse:CacheAllItems()
+	local classFilter, specFilter = EJ_GetLootFilter()
+	EJ_SetLootFilter(0, 0)
+	for instanceID, instance in pairs(data.instances) do
+		EJ_SelectInstance(instanceID)
+		
+		for i, v in ipairs(self:GetDifficulties(instance.isRaid)) do
+			if EJ_IsValidInstanceDifficulty(v.difficultyID) then
+				EJ_SetDifficulty(v.enumValue)
+				local numLoot = EJ_GetNumLoot()
+				-- for i = 1, numLoot do
+					-- local name, icon, slot, armorType, itemID, link, encounterID = EJ_GetLootInfoByIndex(i)
+				-- end
+			end
+		end
+	end
+	EJ_SetLootFilter(classFilter, specFilter)
+end
+
 function Browse:OnInitialize()
 	self.db = addon.db:RegisterNamespace("Browse", defaults)
 	self:RegisterEvent("EJ_LOOT_DATA_RECIEVED", refreshLoot)
@@ -304,6 +323,8 @@ function Browse:OnInitialize()
 	
 	self:SetNavigationList(home)
 	self:SetList(nil)
+	
+	self:CacheAllItems()
 end
 
 local lastInstance
@@ -425,14 +446,6 @@ end
 
 local addedItems = {}
 
-local function getQuality(item)
-	for k, v in pairs(ITEM_QUALITY_COLORS) do
-		if item:match("^"..v.hex) then
-			return k
-		end
-	end
-end
-
 function Browse:LoadTierLoot(index)
 	local t = debugprofilestop()
 
@@ -443,7 +456,7 @@ function Browse:LoadTierLoot(index)
 		wipe(addedItems)
 		EJ_SelectInstance(instanceID)
 		
-		for i, v in ipairs(Browse:GetDifficulties(instance.isRaid)) do
+		for i, v in ipairs(self:GetDifficulties(instance.isRaid)) do
 			if EJ_IsValidInstanceDifficulty(v.difficultyID) then
 				EJ_SetDifficulty(v.enumValue)
 				local encounterIndex = 1
@@ -474,22 +487,23 @@ function Browse:LoadTierLoot(index)
 					local name, icon, slot, armorType, itemID, link, encounterID = EJ_GetLootInfoByIndex(i)
 					local item = addon:GetItem(itemID)
 					if not item then
-						local quality = getQuality(name)
+						-- local name, _, quality, iLevel, reqLevel, class, subclass, _, slot = GetItemInfo(itemID)
+						-- if armorType ~= subclass then print(armorType, subclass) end
 						item = {
-							name = strmatch(name, "|cff%x%x%x%x%x%x(.+)|r"),
-							icon = icon,
-							quality = quality,
-							slot = slot ~= "" and slot or nil,
-							armorType = armorType ~= "" and armorType or nil,
+							-- name = name,
+							-- quality = quality,
+							-- slot = _G[slot] and slot,
+							-- armorType = armorType ~= "" and armorType or nil,
 							source = {},
 							class = 0,
 							spec = 0,
 							sourceDifficulty = 0,
 						}
-						addon:AddItem(itemID, item)
+						addon:AddItem(itemID, item, true)
+						addon:AddItemInfo(itemID)
 					end
 					item.source[encounterID] = true
-					-- if this item has already been added for the current difficulty, don't add it again, otherwise we'd get duplicates from 10 and 25 man
+					-- if this item has already been added for the current instance, don't add it again, otherwise we'd get duplicates from 10 and 25 man
 					if not addedItems[itemID] then
 						tinsert(instance.loot, itemID)
 						addedItems[itemID] = true
