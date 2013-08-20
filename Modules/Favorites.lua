@@ -4,6 +4,9 @@ local Favorites = addon:NewModule("Favorites", addon:CreateUI("Favorites"))
 local scrollFrame = Favorites:CreateScrollFrame()
 scrollFrame:AddHeader()
 scrollFrame:UpdateHeight()
+scrollFrame.PostUpdateButton = function(button, item)
+	button.hasItem:SetShown(addon:HasItem(item))
+end
 
 local selection
 

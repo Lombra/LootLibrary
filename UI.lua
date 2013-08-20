@@ -1,6 +1,7 @@
 local addonName, addon = ...
 
 local LBI = LibStub("LibBabble-Inventory-3.0"):GetUnstrictLookupTable()
+local IIC = ItemInfoCache
 
 local mt = {
 	__newindex = function(tbl, key, value)
@@ -62,7 +63,7 @@ local function getWidgetName()
 	return name
 end
 
-local items = addon.items
+local items = IIC.items
 
 local frame = CreateFrame("Frame", "LootLibraryFrame", UIParent, "ButtonFrameTemplate")
 addon.frame = frame
@@ -73,6 +74,7 @@ frame:SetScript("OnShow", function(self)
 	PlaySound("igCharacterInfoOpen")
 	if not PanelTemplates_GetSelectedTab(self) then
 		PanelTemplates_SetTab(self, 1)
+        -- addon:GetModule("Browse"):CacheAllItems()
 	end
 end)
 frame:SetScript("OnHide", function(self)
@@ -215,9 +217,12 @@ do
 			local object = list[index]
 			local button = buttons[i]
 			if object then
-				self.updateButton(button, list[index], list)
+				self.updateButton(button, object, list)
+				if self.PostUpdateButton then
+					self.PostUpdateButton(button, object, list)
+				end
 			end
-			button:SetShown(object)
+			button:SetShown(object ~= nil)
 		end
 		
 		local numHeaders = self:GetNumVisibleHeaders()
@@ -278,6 +283,9 @@ do
 		
 		local function onClick(self, button)
 			local module = self:GetParent():GetParent().parent
+			if HandleModifiedItemClick(select(2, GetItemInfo(self.itemID))) then
+				return
+			end
 			if button == "LeftButton" then
 				local Favorites = addon:GetModule("Favorites")
 				if self.isHeader then
@@ -292,9 +300,8 @@ do
 						Favorites:RemoveItem(self.itemID, Favorites:GetSelectedSet())
 					else
 						Favorites:AddItem(self.itemID)
+						self.favorite:Show()
 					end
-				elseif IsModifiedClick() then
-					HandleModifiedItemClick(select(2, GetItemInfo(self.itemID)))
 				end
 			else
 				dropdown.initialize = module.initialize
@@ -386,10 +393,16 @@ do
 			
 			button.hasItem = button:CreateTexture(nil, "OVERLAY")
 			button.hasItem:SetTexture([[Interface\RaidFrame\ReadyCheck-Ready]])
-			button.hasItem:SetSize(16, 16)
-			button.hasItem:SetPoint("TOPRIGHT", -2, 2)
+			button.hasItem:SetSize(18, 18)
+			button.hasItem:SetPoint("TOPLEFT", button.icon, -5, 5)
+			button.hasItem:Hide()
 			
-			-- wishlist:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_1")
+			button.favorite = button:CreateTexture(nil, "OVERLAY")
+			button.favorite:SetSize(24, 24)
+			button.favorite:SetPoint("TOPLEFT", button.icon, -8, 8)
+			button.favorite:SetTexture([[Interface\PetBattles\PetJournal]])
+			button.favorite:SetTexCoord(0.11328125, 0.16210938, 0.02246094, 0.046875)
+			button.favorite:Hide()
 			
 			return button
 		end
@@ -402,9 +415,16 @@ do
 			
 			button.background = button:CreateTexture(nil, "BACKGROUND")
 			button.background:SetAllPoints()
-			button.background:SetTexture([[Interface\EncounterJournal\UI-EncounterJournalTextures_Tile]])
-			button.background:SetTexCoord(0, 1, 0.74804688, 0.84375)
+			button.background:SetTexture([[Interface\PVPFrame\PvPMegaQueue]])
+			button.background:SetTexCoord(0.00195313, 0.63867188, 0.83203125, 0.87109375)
 			
+				-- <Texture parentKey="Bg" file="Interface\PVPFrame\PvPMegaQueue" alpha="0.6">
+					-- <Anchors>
+						-- <Anchor point="TOPLEFT" x="3" y="-1"/>
+						-- <Anchor point="BOTTOMRIGHT" x="-3" y="2"/>
+					-- </Anchors>
+					-- <TexCoords left="0.00195313" right="0.63867188" top="0.83203125" bottom="0.87109375"/>
+				-- </Texture>
 			-- local categoryLeft = button:CreateTexture(nil, "BORDER")
 			-- categoryLeft:SetPoint("LEFT")
 			-- categoryLeft:SetSize(76, 16)
@@ -439,57 +459,30 @@ do
 				button.label:SetFontObject("GameFontNormal")
 				button.itemID = nil
 			else
-				local itemName, source, armorType, slot
-				local item = addon:GetItem(object)
-				local r, g, b = RED_FONT_COLOR.r, RED_FONT_COLOR.g, RED_FONT_COLOR.b
+				local item = items[object]
 				if item then
-					itemName = item.name
-					r, g, b = GetItemQualityColor(item.quality)
-					source = EJ_GetEncounterInfo(next(item.source))
-					slot = not noSlot[item.type] and item.slot
-					armorType = not noArmor[slot] and item.type
-				else
-					local name, _, quality, iLevel, reqLevel, class, subclass, _, equipSlot = GetItemInfo(object)
-					itemName = name or RETRIEVING_ITEM_INFO
-					if name then
-						r, g, b = GetItemQualityColor(quality)
-						subclass = not noArmor[equipSlot] and (weaponTypes[subclass] or subclass)
+					local info = addon:GetItem(object)
+					local r, g, b = GetItemQualityColor(item.quality)
+					local source = info and info.source and next(info.source)
+					local slot = not noSlot[item.type] and _G[item.slot]
+					local armorType = not noArmor[slot] and item.type
+					-- in some cases armorType is the same as slot, no need to show both
+					if armorType and slot and armorType ~= slot then
+						button.info:SetText(slot..", "..armorType)
 					else
-						button:GetParent():GetParent().parent.doUpdateList = true
+						button.info:SetText(slot or armorType or "")
 					end
-					source = nil
-					if class == LBI["Armor"] or class == LBI["Weapon"] then
-						armorType = subclass
-					end
-					slot = _G[equipSlot]
-				end
-				-- if not item then
-					-- local name, _, quality, iLevel, reqLevel, class, subclass, _, equipSlot = GetItemInfo(object)
-					-- if name then
-						-- item = {
-							-- name = name
-							-- icon = icon,
-							-- quality = quality,
-							-- slot = _G[equipSlot],
-							-- armorType = not noArmor[equipSlot] and (weaponTypes[subclass] or subclass),-- or nil,
-							-- class = 0,
-							-- spec = 0,
-						-- }
-						-- addon:AddItem(object, item)
-					-- end
-				-- end
-				button.hasItem:SetShown(addon:HasItem(object))
-				button.label:SetText(itemName)
-				button.label:SetTextColor(r, g, b)
-				button.icon:SetTexture(GetItemIcon(object))
-				button.source:SetText(source)
-				slot = _G[slot]
-				-- in some cases armorType is the same as slot, no need to show both
-				if armorType and slot and armorType ~= slot then
-					button.info:SetText(slot..", "..armorType)
+					button.label:SetText(item.name)
+					button.label:SetTextColor(r, g, b)
+					button.source:SetText(source and (tonumber(source) and EJ_GetEncounterInfo(source) or source))
 				else
-					button.info:SetText(slot or armorType or "")
+					button.label:SetText(RETRIEVING_ITEM_INFO)
+					button.label:SetTextColor(RED_FONT_COLOR.r, RED_FONT_COLOR.g, RED_FONT_COLOR.b)
+					button.source:SetText(nil)
+					button.info:SetText(nil)
+					button:GetParent():GetParent().parent.doUpdateList = true
 				end
+				button.icon:SetTexture(GetItemIcon(object))
 				button.itemID = object
 			end
 			
@@ -545,6 +538,62 @@ do
 			local button = createButtonBase(frame, onClick)
 			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 			button:SetHighlightTexture([[Interface\QuestFrame\UI-QuestTitleHighlight]])
+			
+			return button
+		end
+		
+		local function createHeader2(frame)
+			local button = createButtonBase(frame)
+			
+			button:SetNormalFontObject(GameFontNormal)
+			
+			local left = button:CreateTexture(nil, "BORDER")
+			left:SetPoint("LEFT")
+			left:SetSize(76, 16)
+			left:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			left:SetTexCoord(0.17578125, 0.47265625, 0.29687500, 0.54687500)
+			
+			local right = button:CreateTexture(nil, "BORDER")
+			right:SetPoint("RIGHT")
+			right:SetSize(76, 16)
+			right:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			right:SetTexCoord(0.17578125, 0.47265625, 0.01562500, 0.26562500)
+			
+			local middle = button:CreateTexture(nil, "BORDER")
+			middle:SetPoint("LEFT", left, "RIGHT", -20, 0)
+			middle:SetPoint("RIGHT", right, "LEFT", 20, 0)
+			middle:SetHeight(16)
+			middle:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			middle:SetTexCoord(0.48046875, 0.98046875, 0.01562500, 0.26562500)
+			
+			local left = button:CreateTexture(nil, "HIGHLIGHT")
+			left:SetBlendMode("ADD")
+			left:SetPoint("LEFT", -5, 0)
+			left:SetSize(26, 18)
+			left:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			left:SetTexCoord(18 / 256, 44 / 256, 18 / 64, 36 / 64)
+			
+			local right = button:CreateTexture(nil, "HIGHLIGHT")
+			right:SetBlendMode("ADD")
+			right:SetPoint("RIGHT", 5, 0)
+			right:SetSize(26, 18)
+			right:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			right:SetTexCoord(18 / 256, 44 / 256, 0, 18 / 64)
+			
+			local middle = button:CreateTexture(nil, "HIGHLIGHT")
+			middle:SetBlendMode("ADD")
+			middle:SetPoint("LEFT", left, "RIGHT")
+			middle:SetPoint("RIGHT", right, "LEFT")
+			middle:SetHeight(18)
+			middle:SetTexture([[Interface\Buttons\CollapsibleHeader]])
+			middle:SetTexCoord(0, 18 / 256, 0, 18 / 64)
+			
+			-- local highlight = button:CreateTexture()
+			-- highlight:SetPoint("TOPLEFT", 3, -2)
+			-- highlight:SetPoint("BOTTOMRIGHT", -3, 2)
+			-- highlight:SetTexture([[Interface\TokenFrame\UI-TokenFrame-CategoryButton]])
+			-- highlight:SetTexCoord(0, 1, 0.609375, 0.796875)
+			-- button:SetHighlightTexture(highlight)
 			
 			return button
 		end
@@ -637,18 +686,13 @@ function Prototype:CreateEditBox()
 	return editbox
 end
 
-local function onUpdate(self)
-	for k, module in self:IterateModules() do
+IIC.RegisterCallback(addon, "GetItemInfoReceivedAll", function(self)
+	for k, module in addon:IterateModules() do
 		if module.doUpdateList then
 			module.doUpdateList = nil
 			module:UpdateList()
 		end
 	end
-	self:RemoveOnUpdate()
-end
-
-addon:RegisterEvent("GET_ITEM_INFO_RECEIVED", function(self)
-	self:SetOnUpdate(onUpdate)
 end)
 
 
@@ -708,6 +752,9 @@ local customSort = {
 		LBI["Leather"],
 		LBI["Cloth"],
 		LBI["Miscellaneous"],
+		LBI["Bow"],
+		LBI["Dagger"],
+		LBI["Polearm"],
 	},
 }
 
@@ -728,16 +775,18 @@ local function listSort(a, b)
 			if sortAscending[v] then
 				a, b = b, a
 			end
-			if not (a[v] and b[v]) then
-				return a[v]
+			local valueA, valueB = a[v], b[v]
+			if not (valueA and valueB) then
+				return valueA
 			end
-			if customSort[v] then
-				if not (customSort[v][a[v]] and customSort[v][b[v]]) then
-					return customSort[v][a[v]]
+			local customSort = customSort[v]
+			if customSort then
+				if not (customSort[valueA] and customSort[valueB]) then
+					return customSort[valueA]
 				end
-				return customSort[v][a[v]] > customSort[v][b[v]]
+				return customSort[valueA] > customSort[valueB]
 			end
-			return a[v] > b[v]
+			return valueA > valueB
 		end
 	end
 end

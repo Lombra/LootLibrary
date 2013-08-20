@@ -119,15 +119,15 @@ for i = 1, GetNumClasses() do
 end
 
 local function setGearFilter(self, classID, specID)
-	addon:GetModule("Browse"):LoadAllTierLoot()
-	if self.owner.onClick then
-		self.owner:onClick()
-	end
+	-- addon:GetModule("Browse"):LoadAllTierLoot()
 	CloseDropDownMenus(1)
 	local module = self.owner.module
 	module:SetFilter("class", classID)
-	module:SetFilter("spec", specs[specID])
-	module:ApplyFilters()
+	module:SetFilter("spec", specID or specs[specID])
+	-- module:ApplyFilters()
+	if self.owner.onClick then
+		self.owner:onClick()
+	end
 end
 
 local CLASS_DROPDOWN = 1

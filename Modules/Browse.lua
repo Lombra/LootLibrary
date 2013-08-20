@@ -4,6 +4,9 @@ local Browse = addon:NewModule("Browse", addon:CreateUI("Browse"))
 local scrollFrame = Browse:CreateScrollFrame()
 scrollFrame:AddHeader()
 scrollFrame:UpdateHeight()
+scrollFrame.PostUpdateButton = function(button, item)
+	button.favorite:SetShown(addon:GetModule("Favorites"):HasItem(item))
+end
 
 local data = {
 	tiers = {},
@@ -29,7 +32,8 @@ filterMenu.displayMode = "MENU"
 filterMenu.initialize = addon.InitializeGearFilter
 filterMenu.module = Browse
 filterMenu.onClick = function(self, classID, specID)
-	Browse:LoadSpecData(Browse:GetNavigationList() ~= home and Browse:GetSelectedTier())
+	-- Browse:LoadSpecData(Browse:GetNavigationList() ~= home and Browse:GetSelectedTier())
+	Browse:UpdateLoot()
 end
 
 local filterButton = CreateFrame("Button", "LootLibraryFilter", Browse, "UIMenuButtonStretchTemplate")
@@ -42,57 +46,65 @@ filterButton:SetScript("OnClick", function(self)
 	PlaySound("igMainMenuOptionCheckBoxOn")
 end)
 
-local EJ_DIFF_5MAN 			= 1
-local EJ_DIFF_5MAN_HEROIC 	= 2
+-- DIFFICULTY_DUNGEON_NORMAL = 1;
+-- DIFFICULTY_DUNGEON_HEROIC = 2;
+-- DIFFICULTY_RAID10_NORMAL = 3;
+-- DIFFICULTY_RAID25_NORMAL = 4;
+-- DIFFICULTY_RAID10_HEROIC = 5;
+-- DIFFICULTY_RAID25_HEROIC = 6;
+-- DIFFICULTY_RAID_LFR = 7;
 
-local EJ_DIFF_10MAN		 	= 1
-local EJ_DIFF_25MAN		 	= 2
-local EJ_DIFF_10MAN_HEROIC 	= 3
-local EJ_DIFF_25MAN_HEROIC 	= 4
-local EJ_DIFF_LFRAID	 	= 5
+local DIFF_5  = 1
+local DIFF_5H = 2
 
-local EJ_DIFF_DUNGEON_TBL = {
+local DIFF_10  = 1
+local DIFF_25  = 2
+local DIFF_10H = 3
+local DIFF_25H = 4
+local DIFF_LFR = 5
+
+local DUNGEON_DIFFICULTIES = {
 	{
-		enumValue = EJ_DIFF_5MAN,
+		enumValue = DIFF_5,
 		size = 5,
 		prefix = PLAYER_DIFFICULTY1,
 		difficultyID = 1
 	},
 	{
-		enumValue = EJ_DIFF_5MAN_HEROIC,
+		enumValue = DIFF_5H,
 		size = 5,
 		prefix = PLAYER_DIFFICULTY2,
 		difficultyID =  2
 	},
 }
 
-local EJ_DIFF_RAID_TBL = {
+local RAID_DIFFICULTIES = {
 	{
-		enumValue = EJ_DIFF_LFRAID,
+		enumValue = DIFF_LFR,
 		size = 25,
 		prefix = PLAYER_DIFFICULTY3,
 		difficultyID = 7
 	},
 	{
-		enumValue = EJ_DIFF_10MAN,
+		enumValue = DIFF_10,
 		size = 10,
 		prefix = PLAYER_DIFFICULTY1,
 		difficultyID = 3
 	},
 	{
-		enumValue = EJ_DIFF_10MAN_HEROIC,
+		enumValue = DIFF_10H,
 		size = 10,
 		prefix = PLAYER_DIFFICULTY2,
 		difficultyID = 5
 	},
 	{
-		enumValue = EJ_DIFF_25MAN,
+		enumValue = DIFF_25,
 		size = 25,
 		prefix = PLAYER_DIFFICULTY1,
 		difficultyID = 4
 	},
 	{
-		enumValue = EJ_DIFF_25MAN_HEROIC,
+		enumValue = DIFF_25H,
 		size = 25,
 		prefix = PLAYER_DIFFICULTY2,
 		difficultyID = 6
@@ -101,16 +113,20 @@ local EJ_DIFF_RAID_TBL = {
 
 local difficultyInfo = {}
 
-for i, v in ipairs(EJ_DIFF_DUNGEON_TBL) do
+for i, v in ipairs(DUNGEON_DIFFICULTIES) do
 	difficultyInfo[v.difficultyID] = v
 end
 
-for i, v in ipairs(EJ_DIFF_RAID_TBL) do
+for i, v in ipairs(RAID_DIFFICULTIES) do
 	difficultyInfo[v.difficultyID] = v
 end
 
 local function selectDifficulty(self, value)
 	Browse:SetDifficulty(value)
+	Browse:UpdateLoot()
+	if not Browse:IsJournal() then
+		Browse:ApplyFilters()
+	end
 end
 
 local difficultyMenu = CreateFrame("Frame")
@@ -183,11 +199,37 @@ local instanceButton
 do
 	local highlight
 	
-	local function onClick(self)
-		Browse:OnClick(self)
+	local function onClick(self, button)
+		Browse:OnClick(self, button)
 	end
 	
-	function Browse:OnClick(object)
+	local scrollFrame = Browse:CreateNavigationFrame(onClick)
+	scrollFrame.dynamicHeaders = true
+	scrollFrame.updateButton = function(button, object, list)
+		local item = data[list.type][object]
+		button:SetText(item.name)
+		if item.isRaid then
+			button.label:SetTextColor(1, 1, 0.6)
+		else
+			button.label:SetTextColor(1, 1, 1)
+		end
+		button.type = item.type
+		button.list = item
+		button.index = index
+		button.id = object
+	end
+	
+	scrollFrame:SetScript("OnMouseUp", function(self, button)
+		if button == "RightButton" then
+			Browse:OnClick(scrollFrame.headers[max(scrollFrame:GetNumVisibleHeaders() - 1, 1)])
+		end
+	end)
+	
+	function Browse:OnClick(object, button)
+		if button == "RightButton" then
+			self:OnClick(scrollFrame.headers[max(scrollFrame:GetNumVisibleHeaders() - 1, 1)])
+			return
+		end
 		if highlight then
 			highlight:UnlockHighlight()
 			highlight = nil
@@ -199,16 +241,20 @@ do
 			self:SetList(nil)
 			self:SetNavigationList(object.list)
 			tierButton.id = nil
+			self.selectedTier = nil
+			self.selectedInstance = nil
 		elseif object.type == "instances" then
 			instanceButton:Hide()
 			self:SetSelectedTier(object.id)
 			self:SetList(nil)
 			self:SetNavigationList(object.list)
+			self.selectedInstance = nil
 		elseif object.type == "encounters" then
 			if not self:IsValidDifficulty("instances", object.id) then
 				self:SelectValidDifficulty("instances", object.id)
 			end
 			self:SetSelectedInstance(object.id)
+			self:UpdateLoot()
 		else
 			highlight = object
 			object:LockHighlight()
@@ -218,31 +264,23 @@ do
 			self.scrollFrame.headers[1]:SetText(object.list.name)
 			self.scrollFrame.headers[1]:Show()
 			self:SetFilter("source", object.id)
-			self:ApplyFilters()
+			self:UpdateLoot()
+			if not self:IsJournal() then
+				self:ApplyFilters()
+			end
 		end
 	end
 	
-	local scrollFrame = Browse:CreateNavigationFrame(onClick)
-	scrollFrame.dynamicHeaders = true
-	scrollFrame.updateButton = function(button, object, list)
-		local item = data[list.type][object]
-		button:SetText(item.name)
-		button.type = item.type
-		button.list = item
-		button.index = index
-		button.id = object
-	end
-
 	local homeButton = scrollFrame:AddHeader(onClick)
 	homeButton.type = "tiers"
 	homeButton.list = home
 	homeButton:SetText(HOME)
-
+	
 	tierButton = scrollFrame:AddHeader(onClick)
 	tierButton.type = "instances"
 	tierButton.label:SetPoint("LEFT", 15, 0)
 	tierButton:Hide()
-
+	
 	instanceButton = scrollFrame:AddHeader(onClick)
 	instanceButton.type = "encounters"
 	instanceButton.label:SetPoint("LEFT", 19, 0)
@@ -270,37 +308,13 @@ local function addInstances(tier, isRaid)
 			difficulty = 0,
 			isRaid = isRaid,
 			loot = {},
+			journal = true,
 		}
 	end
 end
 
-local p
 local function refreshLoot(self)
 	self:SetOnUpdate(self.RefreshLoot)
-	if not p then
-		print(" --- ")
-		print("OnEvent", #addon:GetAllItems())
-		p = true
-	end
-end
-
-function Browse:CacheAllItems()
-	local classFilter, specFilter = EJ_GetLootFilter()
-	EJ_SetLootFilter(0, 0)
-	for instanceID, instance in pairs(data.instances) do
-		EJ_SelectInstance(instanceID)
-		
-		for i, v in ipairs(self:GetDifficulties(instance.isRaid)) do
-			if EJ_IsValidInstanceDifficulty(v.difficultyID) then
-				EJ_SetDifficulty(v.enumValue)
-				local numLoot = EJ_GetNumLoot()
-				-- for i = 1, numLoot do
-					-- local name, icon, slot, armorType, itemID, link, encounterID = EJ_GetLootInfoByIndex(i)
-				-- end
-			end
-		end
-	end
-	EJ_SetLootFilter(classFilter, specFilter)
 end
 
 function Browse:OnInitialize()
@@ -317,14 +331,12 @@ function Browse:OnInitialize()
 		}
 		data.tiers[i] = tier
 		EJ_SelectTier(i)
-		addInstances(tier, false)
 		addInstances(tier, true)
+		addInstances(tier, false)
 	end
 	
 	self:SetNavigationList(home)
 	self:SetList(nil)
-	
-	self:CacheAllItems()
 end
 
 local lastInstance
@@ -335,19 +347,55 @@ function Browse:OnShow()
 	
 	-- navigate to current instance
 	local instanceID = EJ_GetCurrentInstance()
-	local _, _, difficultyIndex = GetInstanceInfo()
-	if instanceID ~= 0 then--and (instanceID ~= lastInstance or difficultyIndex ~= lastDifficultyIndex) then
+	local _, _, difficultyID = GetInstanceInfo()
+	if instanceID ~= 0 and (instanceID ~= lastInstance) then--or difficultyID ~= lastDifficulty) then
 		lastInstance = instanceID
-		lastDifficulty = difficultyIndex
-		if IsPartyLFG() and IsInRaid() then
-			difficultyIndex = EJ_DIFF_LFRAID
-		end
+		lastDifficulty = difficultyID
+		self:SetDifficulty(max(difficultyID, 1))
 		self:SelectInstance(instanceID)
-		if self:IsValidDifficulty("instances", instanceID, difficultyIndex) then
-			self:SetDifficulty(difficultyIndex)
-		else
-			self:SelectValidDifficulty("instances", instanceID)
+		self:UpdateLoot()
+	end
+end
+
+function Browse:UpdateLoot()
+	if not self:GetSelectedInstance() then
+		return
+	end
+	
+	if self:IsJournal() then
+		local difficultyID = self:GetFilter("sourceDifficulty")
+		EJ_SetDifficulty(difficultyInfo[difficultyID].enumValue)
+		local source = self:GetFilter("source")
+		if source then
+			EJ_SelectEncounter(source)
 		end
+		local loot = {}
+		local classFilter, specFilter = EJ_GetLootFilter()
+		EJ_SetLootFilter(self:GetFilter("class") or 0, self:GetFilter("spec") or 0)
+		for i = 1, EJ_GetNumLoot() do
+			local name, icon, slot, armorType, itemID, link, encounterID = EJ_GetLootInfoByIndex(i)
+			tinsert(loot, itemID)
+			local item = addon:GetItem(itemID)
+			if not item then
+				item = {
+					source = {},
+					-- class = 0,
+					-- spec = 0,
+					-- sourceDifficulty = 0,
+				}
+				addon:AddItem(itemID, item, true)
+			end
+			item.source[encounterID] = true
+			-- if this item has already been added for the current instance, don't add it again, otherwise we'd get duplicates from 10 and 25 man
+			-- if not addedItems[itemID] then
+				-- tinsert(instance.loot, itemID)
+				-- addedItems[itemID] = true
+			-- end
+			-- item.sourceDifficulty = bit.bor(item.sourceDifficulty, 2 ^ v.difficultyID)
+		end
+		EJ_SetLootFilter(classFilter, specFilter)
+		self:SetList(loot)
+	else
 	end
 end
 
@@ -368,12 +416,12 @@ function Browse:SelectValidDifficulty(objectType, objectID)
 end
 
 function Browse:GetDifficulties(isRaid)
-	return isRaid and EJ_DIFF_RAID_TBL or EJ_DIFF_DUNGEON_TBL
+	return isRaid and RAID_DIFFICULTIES or DUNGEON_DIFFICULTIES
 end
 
 function Browse:SetDifficulty(difficultyID)
 	self:SetFilter("sourceDifficulty", difficultyID)
-	self:ApplyFilters()
+	-- self:ApplyFilters()
 	local entry = difficultyInfo[difficultyID]
 	LootLibraryDifficulty:SetFormattedText(ENCOUNTER_JOURNAL_DIFF_TEXT, entry.size, entry.prefix)
 end
@@ -383,7 +431,7 @@ function Browse:SetSelectedTier(tierID)
 		self:LoadTierLoot(tierID)
 	end
 	if self:GetFilter("class") or self:GetFilter("spec") then
-		self:LoadSpecData(tierID)
+		-- self:LoadSpecData(tierID)
 	end
 	
 	local tier = data.tiers[tierID]
@@ -400,9 +448,16 @@ function Browse:SetSelectedInstance(instanceID)
 	instanceButton.list = instance
 	instanceButton:Show()
 	
+	self.selectedInstance = instanceID
+	
 	self:SetNavigationList(instance)
 	
-	self:SetList(instance.loot)
+	if instance.journal then
+		EJ_SelectInstance(instanceID)
+	else
+		self:SetList(instance.loot)
+	end
+	
 	self:ClearFilter("source")
 	self:ApplyFilters()
 	
@@ -412,6 +467,10 @@ end
 
 function Browse:GetSelectedTier()
 	return tierButton.id
+end
+
+function Browse:GetSelectedInstance()
+	return self.selectedInstance
 end
 
 function Browse:SelectInstance(instanceID)
@@ -444,14 +503,17 @@ function Browse:GetNumItems(instanceID)
 	return instance and #instance.loot
 end
 
+function Browse:IsJournal()
+	return instanceButton.list.journal
+end
+
 local addedItems = {}
 
 function Browse:LoadTierLoot(index)
-	local t = debugprofilestop()
-
 	local classFilter, specFilter = EJ_GetLootFilter()
 	for i, instanceID in ipairs(data.tiers[index]) do
 		local instance = data.instances[instanceID]
+		if instance.journal then
 		wipe(instance.loot)
 		wipe(addedItems)
 		EJ_SelectInstance(instanceID)
@@ -483,39 +545,12 @@ function Browse:LoadTierLoot(index)
 				if numLoot > 0 then
 					instance.difficulty = bit.bor(instance.difficulty, 2 ^ v.difficultyID)
 				end
-				for i = 1, numLoot do
-					local name, icon, slot, armorType, itemID, link, encounterID = EJ_GetLootInfoByIndex(i)
-					local item = addon:GetItem(itemID)
-					if not item then
-						-- local name, _, quality, iLevel, reqLevel, class, subclass, _, slot = GetItemInfo(itemID)
-						-- if armorType ~= subclass then print(armorType, subclass) end
-						item = {
-							-- name = name,
-							-- quality = quality,
-							-- slot = _G[slot] and slot,
-							-- armorType = armorType ~= "" and armorType or nil,
-							source = {},
-							class = 0,
-							spec = 0,
-							sourceDifficulty = 0,
-						}
-						addon:AddItem(itemID, item, true)
-						addon:AddItemInfo(itemID)
-					end
-					item.source[encounterID] = true
-					-- if this item has already been added for the current instance, don't add it again, otherwise we'd get duplicates from 10 and 25 man
-					if not addedItems[itemID] then
-						tinsert(instance.loot, itemID)
-						addedItems[itemID] = true
-					end
-					item.sourceDifficulty = bit.bor(item.sourceDifficulty, 2 ^ v.difficultyID)
-				end
 			end
+		end
 		end
 	end
 	EJ_SetLootFilter(classFilter, specFilter)
 	data.tiers[index].standby = nil
-	print("LoadTierLoot", index, debugprofilestop() - t)
 end
 
 function Browse:LoadAllTierLoot()
@@ -526,67 +561,70 @@ function Browse:LoadAllTierLoot()
 	end
 end
 
+local function instanceSort(a, b)
+	local instanceA, instanceB = data.instances[a], data.instances[b]
+	if instanceA.isRaid == instanceB.isRaid then
+		return a < b
+	else
+		return instanceA.isRaid
+	end
+end
+
+function Browse:AddInstance(instanceData)
+	tinsert(data.tiers[instanceData.expansion], instanceData.name)
+	local instance = {
+		type = "encounters",
+		name = instanceData.name,
+		difficulty = 0,
+		isRaid = true,
+		loot = {},
+	}
+	data.instances[instanceData.name] = instance
+	sort(data.tiers[instanceData.expansion], instanceSort)
+	for i, v in ipairs(instanceData.encounters) do
+		tinsert(instance, v)
+		data.encounters[v] = {
+			name = v,
+			difficulty = 0,
+		}
+	end
+	for boss, bossData in pairs(instanceData.items) do
+		for itemID, sourceDifficulty in pairs(bossData) do
+			tinsert(instance.loot, itemID)
+			local item = addon:GetItem(itemID)
+			if not item then
+				item = {
+					source = {},
+					sourceDifficulty = 0,
+					-- class = 0,
+					-- spec = 0,
+				}
+				addon:AddItem(itemID, item, true)
+			end
+			-- if this item has already been added for the current instance, don't add it again, otherwise we'd get duplicates from 10 and 25 man
+			-- if not addedItems[itemID] then
+				-- tinsert(instance.loot, itemID)
+				-- addedItems[itemID] = true
+			-- end
+			item.sourceDifficulty = bit.bor(item.sourceDifficulty, sourceDifficulty)
+			instance.difficulty = bit.bor(instance.difficulty, sourceDifficulty)
+			item.source[boss] = true
+			local boss = data.encounters[boss]
+			boss.difficulty = bit.bor(boss.difficulty, sourceDifficulty)
+		end
+	end
+end
+
 function Browse:IsTierDataLoaded(index)
 	return not data.tiers[index].standby
 end
 
-function Browse:LoadSpecData(index)
-	local t = debugprofilestop()
-	if not index then
-		for i, v in ipairs(data.tiers) do
-			self:LoadSpecData(i)
-		end
-		return
-	end
-	if data.tiers[index].spec then
-		return
-	end
-	
-	local classFilter, specFilter = EJ_GetLootFilter()
-	
-	for i, instanceID in ipairs(data.tiers[index]) do
-		local instance = data.instances[instanceID]
-		EJ_SelectInstance(instanceID)
-		
-		for i, v in ipairs(self:GetDifficulties(instance.isRaid)) do
-			if bit.band(instance.difficulty, 2 ^ v.difficultyID) then
-				EJ_SetDifficulty(v.enumValue)
-		
-				for classID = 1, GetNumClasses() do
-					for i = 1, GetNumSpecializationsForClassID(classID) do
-						local specID = GetSpecializationInfoForClassID(classID, i)
-						EJ_SetLootFilter(classID, specID)
-						for i = 1, EJ_GetNumLoot() do
-							local name, icon, slot, armorType, itemID = EJ_GetLootInfoByIndex(i)
-							local item = addon:GetItem(itemID)
-							if not item then print(itemID, name) end
-							item.class = bit.bor(item.class, 2 ^ classID)
-							item.spec = bit.bor(item.spec, 2 ^ specs[specID])
-						end
-					end
-				end
-			end
-		end
-	end
-	EJ_SetLootFilter(classFilter, specFilter)
-	
-	data.tiers[index].spec = true
-	
-	print("LoadSpecData", index, debugprofilestop() - t)
-end
-
 function Browse:RefreshLoot()
-	p = nil
-	local s, d = debugprofilestop()
 	for i = 1, self:GetNumTiers() do
 		if self:IsTierDataLoaded(i) then
 			self:LoadTierLoot(i)
-			d = true
-			-- v.spec = nil
 		end
 	end
-	self:UpdateList()
+	self:UpdateLoot()
 	self:RemoveOnUpdate()
-	print("OnUpdate", #addon:GetAllItems())
-	if d then print("RefreshLoot", debugprofilestop() - s) end
 end

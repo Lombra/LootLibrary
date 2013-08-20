@@ -2,6 +2,9 @@ local addonName, addon = ...
 
 local Search = addon:NewModule("Search", addon:CreateUI("Search"))
 Search:CreateScrollFrame()
+-- scrollFrame.PostUpdateButton = function(button, item)
+	-- button.favorite:SetShown(addon:GetModule("Favorites"):HasItem(item))
+-- end
 
 function Search:OnShow()
 	addon:GetModule("Browse"):LoadAllTierLoot()
@@ -10,6 +13,51 @@ function Search:OnShow()
 end
 
 function Search:OnHide()
+end
+
+function Search:LoadSpecData(index)
+	local t = debugprofilestop()
+	if not index then
+		for i, v in ipairs(data.tiers) do
+			self:LoadSpecData(i)
+		end
+		return
+	end
+	if data.tiers[index].spec then
+		return
+	end
+	
+	local classFilter, specFilter = EJ_GetLootFilter()
+	
+	for i, instanceID in ipairs(data.tiers[index]) do
+		local instance = data.instances[instanceID]
+		EJ_SelectInstance(instanceID)
+		
+		for i, v in ipairs(self:GetDifficulties(instance.isRaid)) do
+			if bit.band(instance.difficulty, 2 ^ v.difficultyID) then
+				EJ_SetDifficulty(v.enumValue)
+		
+				for classID = 1, GetNumClasses() do
+					for i = 1, GetNumSpecializationsForClassID(classID) do
+						local specID = GetSpecializationInfoForClassID(classID, i)
+						EJ_SetLootFilter(classID, specID)
+						for i = 1, EJ_GetNumLoot() do
+							local name, icon, slot, armorType, itemID = EJ_GetLootInfoByIndex(i)
+							local item = addon:GetItem(itemID)
+							if not item then print(itemID, name) end
+							item.class = bit.bor(item.class, 2 ^ classID)
+							item.spec = bit.bor(item.spec, 2 ^ specs[specID])
+						end
+					end
+				end
+			end
+		end
+	end
+	EJ_SetLootFilter(classFilter, specFilter)
+	
+	data.tiers[index].spec = true
+	
+	print("LoadSpecData", index, debugprofilestop() - t)
 end
 
 local numResults = Search:CreateFontString(nil, nil, "GameFontHighlightSmall")
@@ -179,7 +227,7 @@ class:SetPoint("TOP", armorType, "BOTTOM", 0, -16)
 class.initialize = addon.InitializeGearFilter
 class.module = Search
 class.onClick = function()
-	addon:GetModule("Browse"):LoadSpecData()
+	Search:LoadSpecData()
 end
 
 local label = class:CreateFontString(nil, "BACKGROUND", "GameFontNormalSmall")
