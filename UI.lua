@@ -752,9 +752,13 @@ local customSort = {
 		LBI["Leather"],
 		LBI["Cloth"],
 		LBI["Miscellaneous"],
-		LBI["Bow"],
-		LBI["Dagger"],
+		LBI["Axe"],
+		LBI["Mace"],
+		LBI["Sword"],
 		LBI["Polearm"],
+		LBI["Staff"],
+		LBI["Dagger"],
+		LBI["Bow"],
 	},
 }
 
@@ -781,10 +785,13 @@ local function listSort(a, b)
 			end
 			local customSort = customSort[v]
 			if customSort then
-				if not (customSort[valueA] and customSort[valueB]) then
-					return customSort[valueA]
+				local customSortA, customSortB = customSort[valueA], customSort[valueB]
+				if (customSortA or customSortB) then
+					if not (customSortA and customSortB) then
+						return not customSortA and customSortB
+					end
+					return customSortA > customSortB
 				end
-				return customSort[valueA] > customSort[valueB]
 			end
 			return valueA > valueB
 		end
