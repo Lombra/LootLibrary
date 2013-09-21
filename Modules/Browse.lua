@@ -2,7 +2,7 @@ local addonName, addon = ...
 
 local Browse = addon:NewModule("Browse", addon:CreateUI("Browse"))
 local scrollFrame = Browse:CreateScrollFrame()
-scrollFrame:AddHeader()
+scrollFrame:AddHeader():Hide()
 scrollFrame:UpdateHeight()
 scrollFrame.PostUpdateButton = function(button, item)
 	button.favorite:SetShown(addon:GetModule("Favorites"):HasItem(item))
@@ -53,71 +53,59 @@ end)
 -- DIFFICULTY_RAID10_HEROIC = 5;
 -- DIFFICULTY_RAID25_HEROIC = 6;
 -- DIFFICULTY_RAID_LFR = 7;
+-- DIFFICULTY_RAID40 = 9;
 
-local DIFF_5  = 1
-local DIFF_5H = 2
-
-local DIFF_10  = 1
-local DIFF_25  = 2
-local DIFF_10H = 3
-local DIFF_25H = 4
-local DIFF_LFR = 5
-
-local DUNGEON_DIFFICULTIES = {
+local DIFFICULTIES = {
 	{
-		enumValue = DIFF_5,
 		size = 5,
 		prefix = PLAYER_DIFFICULTY1,
-		difficultyID = 1
+		difficultyID = 1,
 	},
 	{
-		enumValue = DIFF_5H,
 		size = 5,
 		prefix = PLAYER_DIFFICULTY2,
-		difficultyID =  2
+		difficultyID = 2,
 	},
-}
-
-local RAID_DIFFICULTIES = {
 	{
-		enumValue = DIFF_LFR,
 		size = 25,
 		prefix = PLAYER_DIFFICULTY3,
-		difficultyID = 7
+		difficultyID = 7,
 	},
 	{
-		enumValue = DIFF_10,
 		size = 10,
 		prefix = PLAYER_DIFFICULTY1,
-		difficultyID = 3
+		difficultyID = 3,
 	},
 	{
-		enumValue = DIFF_10H,
 		size = 10,
 		prefix = PLAYER_DIFFICULTY2,
-		difficultyID = 5
+		difficultyID = 5,
 	},
 	{
-		enumValue = DIFF_25,
 		size = 25,
 		prefix = PLAYER_DIFFICULTY1,
-		difficultyID = 4
+		difficultyID = 4,
 	},
 	{
-		enumValue = DIFF_25H,
 		size = 25,
 		prefix = PLAYER_DIFFICULTY2,
-		difficultyID = 6
+		difficultyID = 6,
+	},
+	{
+		size = "10-25",
+		prefix = PLAYER_DIFFICULTY4,
+		difficultyID = 14,
+	},
+	{
+		size = 40,
+		prefix = PLAYER_DIFFICULTY1,
+		difficultyID = 9,
 	},
 }
 
 local difficultyInfo = {}
 
-for i, v in ipairs(DUNGEON_DIFFICULTIES) do
-	difficultyInfo[v.difficultyID] = v
-end
-
-for i, v in ipairs(RAID_DIFFICULTIES) do
+for i, v in ipairs(DIFFICULTIES) do
 	difficultyInfo[v.difficultyID] = v
 end
 
@@ -134,7 +122,6 @@ difficultyMenu.displayMode = "MENU"
 difficultyMenu.initialize = function(self, level)
 	local currDifficulty = Browse:GetFilter("sourceDifficulty")
 	local currentList = Browse:GetNavigationList()
-	local diffList = Browse:GetDifficulties(currentList.isRaid)
 	
 	local filter = currentList.difficulty
 	local selectedEncounter = Browse:GetFilter("source")
@@ -142,15 +129,16 @@ difficultyMenu.initialize = function(self, level)
 		filter = data.encounters[selectedEncounter].difficulty
 	end
 	
-	for i = 1, #diffList do
-		local entry = diffList[i]
-		local info = UIDropDownMenu_CreateInfo()
-		info.text = format(ENCOUNTER_JOURNAL_DIFF_TEXT, entry.size, entry.prefix)
-		info.func = selectDifficulty
-		info.arg1 = entry.difficultyID
-		info.checked = currDifficulty == entry.difficultyID
-		info.disabled = filter and bit.band(filter, 2 ^ entry.difficultyID) == 0
-		UIDropDownMenu_AddButton(info)
+	for i, entry in ipairs(Browse:GetDifficulties()) do
+		if not filter or bit.band(filter, 2 ^ entry.difficultyID) ~= 0 then
+			local info = UIDropDownMenu_CreateInfo()
+			info.text = format(ENCOUNTER_JOURNAL_DIFF_TEXT, entry.size, entry.prefix)
+			info.func = selectDifficulty
+			info.arg1 = entry.difficultyID
+			info.checked = currDifficulty == entry.difficultyID
+			info.disabled = filter and bit.band(filter, 2 ^ entry.difficultyID) == 0
+			UIDropDownMenu_AddButton(info)
+		end
 	end
 end
 
@@ -296,7 +284,7 @@ local defaults = {
 local function addInstances(tier, isRaid)
 	local n = 1
 	while true do
-		local instanceID, name, _, _, buttonImage, _, _, link = EJ_GetInstanceByIndex(n, isRaid)
+		local instanceID, name, _, _, buttonImage, _, mapID, link = EJ_GetInstanceByIndex(n, isRaid)
 		if not instanceID then
 			break
 		end
@@ -346,8 +334,20 @@ function Browse:OnShow()
 	if not self.db.profile.autoSelectInstance then return end
 	
 	-- navigate to current instance
+	local mapID
 	local instanceID = EJ_GetCurrentInstance()
-	local _, _, difficultyID = GetInstanceInfo()
+	-- if instanceID > 0 then
+		-- mapID = select(6, EJ_GetInstanceInfo(instanceID))
+	-- else
+		-- local currentMap = GetCurrentMapAreaID()
+		-- SetMapToCurrentZone()
+		-- mapID = GetCurrentMapAreaID()
+		-- SetMapByID(currentMap)
+	-- end
+	local name, _, difficultyID = GetInstanceInfo()
+	if instanceID == 0 and data.instances[name] then
+		instanceID = name
+	end
 	if instanceID ~= 0 and (instanceID ~= lastInstance) then--or difficultyID ~= lastDifficulty) then
 		lastInstance = instanceID
 		lastDifficulty = difficultyID
@@ -364,7 +364,7 @@ function Browse:UpdateLoot()
 	
 	if self:IsJournal() then
 		local difficultyID = self:GetFilter("sourceDifficulty")
-		EJ_SetDifficulty(difficultyInfo[difficultyID].enumValue)
+		EJ_SetDifficulty(difficultyID)
 		local source = self:GetFilter("source")
 		if source then
 			EJ_SelectEncounter(source)
@@ -416,7 +416,7 @@ function Browse:SelectValidDifficulty(objectType, objectID)
 end
 
 function Browse:GetDifficulties(isRaid)
-	return isRaid and RAID_DIFFICULTIES or DUNGEON_DIFFICULTIES
+	return DIFFICULTIES--isRaid and RAID_DIFFICULTIES or DUNGEON_DIFFICULTIES
 end
 
 function Browse:SetDifficulty(difficultyID)
@@ -520,7 +520,7 @@ function Browse:LoadTierLoot(index)
 		
 		for i, v in ipairs(self:GetDifficulties(instance.isRaid)) do
 			if EJ_IsValidInstanceDifficulty(v.difficultyID) then
-				EJ_SetDifficulty(v.enumValue)
+				EJ_SetDifficulty(v.difficultyID)
 				local encounterIndex = 1
 				while true do
 					local name, _, encounterID = EJ_GetEncounterInfoByIndex(encounterIndex)
@@ -588,9 +588,10 @@ function Browse:AddInstance(instanceData)
 			difficulty = 0,
 		}
 	end
+	wipe(addedItems)
 	for boss, bossData in pairs(instanceData.items) do
 		for itemID, sourceDifficulty in pairs(bossData) do
-			tinsert(instance.loot, itemID)
+			-- tinsert(instance.loot, itemID)
 			local item = addon:GetItem(itemID)
 			if not item then
 				item = {
@@ -602,10 +603,10 @@ function Browse:AddInstance(instanceData)
 				addon:AddItem(itemID, item, true)
 			end
 			-- if this item has already been added for the current instance, don't add it again, otherwise we'd get duplicates from 10 and 25 man
-			-- if not addedItems[itemID] then
-				-- tinsert(instance.loot, itemID)
-				-- addedItems[itemID] = true
-			-- end
+			if not addedItems[itemID] then
+				tinsert(instance.loot, itemID)
+				addedItems[itemID] = true
+			end
 			item.sourceDifficulty = bit.bor(item.sourceDifficulty, sourceDifficulty)
 			instance.difficulty = bit.bor(instance.difficulty, sourceDifficulty)
 			item.source[boss] = true

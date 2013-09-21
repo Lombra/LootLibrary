@@ -48,23 +48,16 @@ local exceptions = {
 	maxItemLevel = "itemLevel",
 }
 
-local function getItemInfo(itemID, filterName)
-	local name, _, quality, iLevel, reqLevel, class, subclass, _, equipSlot = GetItemInfo(itemID)
-	local item = addon:GetItem(itemID)
-	item.itemLevel = iLevel
-	item.reqLevel = reqLevel
-	return item[filterName]
-end
-
-local filterLoaders = {
-	itemLevel = getItemInfo,
-	reqLevel = getItemInfo,
-}
-
-local function FilterApproves(itemID)
-	local item = addon:GetItem(itemID)
-	for filterName, filterArg in pairs(addon:GetSelectedTab().filterArgs) do
-		local value = item[exceptions[filterName] or filterName] or (filterLoaders[exceptions[filterName] or filterName] and filterLoaders[exceptions[filterName] or filterName](itemID, filterName))
+local function FilterApproves(itemID, filterArgs, module)
+	local item = ItemInfoCache.items[itemID]
+	local info = addon:GetItem(itemID)
+	if not item then
+		module.doUpdateList = true
+		return
+	end
+	for filterName, filterArg in pairs(filterArgs) do
+		local propertyName = exceptions[filterName] or filterName
+		local value = item[propertyName] or info[propertyName]
 		if not (value ~= nil and filters[filterName](value, filterArg)) then
 			return false
 		end
@@ -76,8 +69,9 @@ local filteredList = {}
 
 function Prototype:ApplyFilters()
 	wipe(filteredList)
+	local filterArgs = self.filterArgs
 	for i, v in ipairs(self:GetList(true)) do
-		if FilterApproves(v) then
+		if FilterApproves(v, filterArgs, self) then
 			tinsert(filteredList, v)
 		end
 	end

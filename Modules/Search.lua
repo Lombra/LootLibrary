@@ -1,10 +1,10 @@
 local addonName, addon = ...
 
 local Search = addon:NewModule("Search", addon:CreateUI("Search"))
-Search:CreateScrollFrame()
--- scrollFrame.PostUpdateButton = function(button, item)
-	-- button.favorite:SetShown(addon:GetModule("Favorites"):HasItem(item))
--- end
+local scrollFrame = Search:CreateScrollFrame()
+scrollFrame.PostUpdateButton = function(button, item)
+	button.favorite:SetShown(addon:GetModule("Favorites"):HasItem(item))
+end
 
 function Search:OnShow()
 	addon:GetModule("Browse"):LoadAllTierLoot()

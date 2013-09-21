@@ -331,6 +331,15 @@ do
 			if self.itemID then
 				GameTooltip:SetOwner(self, "ANCHOR_RIGHT", 28, 0)
 				GameTooltip:SetItemByID(self.itemID)
+				local info = addon:GetItem(self.itemID)
+				if info then
+					GameTooltip:AddLine(" ")
+					GameTooltip:AddLine("Sources:")
+					for k, v in pairs(info.source) do
+						GameTooltip:AddLine(tonumber(k) and EJ_GetEncounterInfo(k) or k, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+					end
+					GameTooltip:Show()
+				end
 				self.showingTooltip = true
 				if IsModifiedClick("DRESSUP") then
 					ShowInspectCursor()
@@ -690,7 +699,8 @@ IIC.RegisterCallback(addon, "GetItemInfoReceivedAll", function(self)
 	for k, module in addon:IterateModules() do
 		if module.doUpdateList then
 			module.doUpdateList = nil
-			module:UpdateList()
+			-- module:UpdateList()
+			module:ApplyFilters()
 		end
 	end
 end)
