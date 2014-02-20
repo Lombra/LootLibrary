@@ -1,7 +1,8 @@
 local addonName, addon = ...
 
+local Libra = LibStub("Libra")
 local LBI = LibStub("LibBabble-Inventory-3.0"):GetUnstrictLookupTable()
-local IIC = ItemInfoCache
+local ItemInfo = LibStub("LibItemInfo-1.0")
 
 local mt = {
 	__newindex = function(tbl, key, value)
@@ -63,9 +64,7 @@ local function getWidgetName()
 	return name
 end
 
-local items = IIC.items
-
-local frame = CreateFrame("Frame", "LootLibraryFrame", UIParent, "ButtonFrameTemplate")
+local frame = Libra:CreateUIPanel("LootLibraryFrame")
 addon.frame = frame
 frame:SetPoint("CENTER")
 frame:SetToplevel(true)
@@ -80,15 +79,9 @@ end)
 frame:SetScript("OnHide", function(self)
 	PlaySound("igCharacterInfoClose")
 end)
-frame.TitleText:SetText("LootLibrary")
-ButtonFrameTemplate_HidePortrait(frame)
-ButtonFrameTemplate_HideButtonBar(frame)
-tinsert(UISpecialFrames, frame:GetName())
-UIPanelWindows[frame:GetName()] = {
-	area = "left",
-	-- pushable = 3,
-	whileDead = true,
-}
+frame:SetTitleText("LootLibrary")
+frame:HidePortrait()
+frame:HideButtonBar()
 
 local tabs = {}
 
@@ -162,7 +155,7 @@ function addon:GetSelectedTab()
 end
 
 do
-	frame:SetWidth(338 + 256+22)
+	frame:SetWidth(PANEL_DEFAULT_WIDTH + 256+22)
 	
 	frame.Inset:SetPoint("TOPLEFT", 260+22, PANEL_INSET_ATTIC_OFFSET)
 	
@@ -468,7 +461,7 @@ do
 				button.label:SetFontObject("GameFontNormal")
 				button.itemID = nil
 			else
-				local item = items[object]
+				local item = ItemInfo[object]
 				if item then
 					local info = addon:GetItem(object)
 					local r, g, b = GetItemQualityColor(item.quality)
@@ -522,7 +515,7 @@ do
 	end
 	
 	do	-- scroll frame for navigation frame
-		local BUTTON_HEIGHT = 17
+		local BUTTON_HEIGHT = 16
 		local BUTTON_OFFSET = 3
 		
 		local function onClick(self)
@@ -644,7 +637,7 @@ do
 		function Prototype:CreateNavigationFrame(onClick)
 			local inset = CreateFrame("Frame", nil, self, "InsetFrameTemplate")
 			inset:SetPoint("TOPLEFT", PANEL_INSET_LEFT_OFFSET, PANEL_INSET_ATTIC_OFFSET)
-			inset:SetPoint("BOTTOM", 0, PANEL_INSET_BOTTOM_OFFSET)
+			inset:SetPoint("BOTTOM", 0, PANEL_INSET_BOTTOM_OFFSET + 2)
 			inset:SetPoint("RIGHT", self.Inset, "LEFT", PANEL_INSET_RIGHT_OFFSET, 0)
 			
 			local scrollFrame = createScrollFrame(self, inset, createButton, onClick, BUTTON_HEIGHT, BUTTON_OFFSET)
@@ -695,7 +688,7 @@ function Prototype:CreateEditBox()
 	return editbox
 end
 
-IIC.RegisterCallback(addon, "GetItemInfoReceivedAll", function(self)
+ItemInfo.RegisterCallback(addon, "OnItemInfoReceivedBatch", function(self)
 	for k, module in addon:IterateModules() do
 		if module.doUpdateList then
 			module.doUpdateList = nil
@@ -782,7 +775,8 @@ for k, v in pairs(customSort) do
 end
 
 local function listSort(a, b)
-	a, b = items[a], items[b]
+	a = ItemInfo[a]
+	b = ItemInfo[b]
 	if not (a and b) then return end
 	for i, v in ipairs(sortPriority) do
 		if a[v] ~= b[v] then

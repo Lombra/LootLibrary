@@ -1,5 +1,7 @@
 local addonName, addon = ...
 
+local ItemInfo = LibStub("LibItemInfo-1.0")
+
 local Prototype = addon.prototype
 
 local filterTemplates = {
@@ -49,7 +51,7 @@ local exceptions = {
 }
 
 local function FilterApproves(itemID, filterArgs, module)
-	local item = ItemInfoCache.items[itemID]
+	local item = ItemInfo[itemID]
 	local info = addon:GetItem(itemID)
 	if not item then
 		module.doUpdateList = true

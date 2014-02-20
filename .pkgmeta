@@ -1,7 +1,11 @@
+package-as: LootLibrary
+
+enable-nolib-creation: no
+
 externals:
     Libs/LibStub: svn://svn.wowace.com/wow/ace3/mainline/trunk/LibStub
     Libs/CallbackHandler-1.0: svn://svn.wowace.com/wow/ace3/mainline/trunk/CallbackHandler-1.0
     Libs/AceDB-3.0: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceDB-3.0
     Libs/LibBabble-Inventory-3.0: svn://svn.wowace.com/wow/libbabble-inventory-3-0/mainline/trunk
-
-enable-nolib-creation: no
+    Libs/Libra: svn://svn.wowace.com/wow/libra/mainline/trunk/Libra
+    Libs/LibItemInfo-1.0: svn://svn.wowace.com/wow/libiteminfo-1-0/mainline/trunk/LibItemInfo-1.0

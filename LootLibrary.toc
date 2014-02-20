@@ -1,4 +1,4 @@
-## Interface: 50300
+## Interface: 50400
 ## Title: LootLibrary
 ## Version: @project-version@
 ## Notes: 
@@ -10,8 +10,8 @@ Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Libs\AceDB-3.0\AceDB-3.0.lua
 Libs\LibBabble-Inventory-3.0\lib.xml
-
-ItemInfoCache.lua
+Libs\Libra\Libra.xml
+Libs\LibItemInfo-1.0\LibItemInfo-1.0.lua
 
 Core.lua
 UI.lua
