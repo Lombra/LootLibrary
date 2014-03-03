@@ -1,6 +1,7 @@
 local addonName, addon = ...
 
 local Browse = addon:NewModule("Browse", addon:CreateUI("Browse"))
+
 local scrollFrame = Browse:CreateScrollFrame()
 scrollFrame:AddHeader():Hide()
 scrollFrame:UpdateHeight()
@@ -363,6 +364,7 @@ function Browse:UpdateLoot()
 	end
 	
 	if self:IsJournal() then
+		EJ_SelectInstance(self:GetSelectedInstance())
 		local difficultyID = self:GetFilter("sourceDifficulty")
 		EJ_SetDifficulty(difficultyID)
 		local source = self:GetFilter("source")
