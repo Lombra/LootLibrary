@@ -26,8 +26,9 @@ do
 		},
 	}
 	
-	local dropdown = CreateFrame("Frame")
-	dropdown.displayMode = "MENU"
+	local dropdown = addon:CreateDropdown("Menu")
+	dropdown.xOffset = 0
+	dropdown.yOffset = 0
 	dropdown.initialize = function(self)
 		for i, v in ipairs(menu) do
 			local info = UIDropDownMenu_CreateInfo()
@@ -49,7 +50,7 @@ do
 				end
 			end
 		elseif self.list.name then
-			ToggleDropDownMenu(nil, self.list.name, dropdown, self, 0, 0)
+			dropdown:Toggle(self.list.name, self)
 		end
 	end
 	

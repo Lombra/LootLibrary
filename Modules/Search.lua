@@ -165,14 +165,15 @@ local slots = {
 }
 
 local function onClick(self, slot)
-	Search:SetFilter("slot", slot)
+	Search:SetFilter("invType", slot)
 	Search:ApplyFilters()
 end
 
-local slot = CreateFrame("Frame", "LootLibrarySearchSlot", Search, "UIDropDownMenuTemplate")
+local slot = addon:CreateDropdown("Frame", Search)
 slot:SetPoint("TOPLEFT", minItemLevel, "BOTTOMLEFT", -22, -16)
+slot:SetLabel("Slot")
 slot.initialize = function(self)
-	local currentSlot = Search:GetFilter("slot")
+	local currentSlot = Search:GetFilter("invType")
 	local info = UIDropDownMenu_CreateInfo()
 	info.text = "Any"
 	info.func = onClick
@@ -188,51 +189,41 @@ slot.initialize = function(self)
 	end
 end
 
-local label = slot:CreateFontString(nil, "BACKGROUND", "GameFontNormalSmall")
-label:SetPoint("BOTTOMLEFT", slot, "TOPLEFT", 16, 3)
-label:SetText("Slot")
-
 local armorClass = {GetAuctionItemSubClasses(2)}
 
 local function onClick(self, armorType)
-	Search:SetFilter("type", armorType)
+	Search:SetFilter("subType", armorType)
 	Search:ApplyFilters()
 end
 
-local armorType = CreateFrame("Frame", "LootLibrarySearchArmorType", Search, "UIDropDownMenuTemplate")
+local armorType = addon:CreateDropdown("Frame", Search)
 armorType:SetPoint("TOP", slot, "BOTTOM", 0, -16)
+armorType:SetLabel("Armor type")
 armorType.initialize = function(self)
-	local currentSlot = Search:GetFilter("type")
+	local currentSlot = Search:GetFilter("subType")
 	local info = UIDropDownMenu_CreateInfo()
 	info.text = "Any"
 	info.func = onClick
 	info.checked = not currentSlot
-	UIDropDownMenu_AddButton(info)
+	self:AddButton(info)
 	for i, v in ipairs(armorClass) do
 		local info = UIDropDownMenu_CreateInfo()
 		info.text = v
 		info.func = onClick
 		info.arg1 = v
 		info.checked = v == currentSlot
-		UIDropDownMenu_AddButton(info)
+		self:AddButton(info)
 	end
 end
 
-local label = armorType:CreateFontString(nil, "BACKGROUND", "GameFontNormalSmall")
-label:SetPoint("BOTTOMLEFT", armorType, "TOPLEFT", 16, 3)
-label:SetText("Armor type")
-
-local class = CreateFrame("Frame", "LootLibrarySearchClass", Search, "UIDropDownMenuTemplate")
+local class = addon:CreateDropdown("Frame", Search)
 class:SetPoint("TOP", armorType, "BOTTOM", 0, -16)
+class:SetLabel("Gear filter")
 class.initialize = addon.InitializeGearFilter
 class.module = Search
 class.onClick = function()
 	Search:LoadSpecData()
 end
-
-local label = class:CreateFontString(nil, "BACKGROUND", "GameFontNormalSmall")
-label:SetPoint("BOTTOMLEFT", class, "TOPLEFT", 16, 3)
-label:SetText("Gear filter")
 
 local filterButton = CreateFrame("Button", "LootLibraryasddads", Search, "UIMenuButtonStretchTemplate")
 filterButton:SetWidth(48)

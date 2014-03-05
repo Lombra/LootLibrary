@@ -32,8 +32,8 @@ local filters = {
 	maxReqLevel = filterTemplates.lessorequal,
 	minItemLevel = filterTemplates.greaterorequal,
 	maxItemLevel = filterTemplates.lessorequal,
-	slot = filterTemplates.equals,
-	type = filterTemplates.equals,
+	invType = filterTemplates.equals,
+	subType = filterTemplates.equals,
 	class = filterTemplates.bitflagsContain,
 	spec = filterTemplates.bitflagsContain,
 	source = filterTemplates.tableContains,
@@ -50,7 +50,7 @@ local exceptions = {
 	maxItemLevel = "itemLevel",
 }
 
-local function FilterApproves(itemID, filterArgs, module)
+local function filterApproves(itemID, filterArgs, module)
 	local item = ItemInfo[itemID]
 	local info = addon:GetItem(itemID)
 	if not item then
@@ -73,7 +73,7 @@ function Prototype:ApplyFilters()
 	wipe(filteredList)
 	local filterArgs = self.filterArgs
 	for i, v in ipairs(self:GetList(true)) do
-		if FilterApproves(v, filterArgs, self) then
+		if filterApproves(v, filterArgs, self) then
 			tinsert(filteredList, v)
 		end
 	end
@@ -133,7 +133,6 @@ addon.InitializeGearFilter = function(self, level)
 	local filterSpecID = self.module:GetFilter("spec") or 0
 	local classDisplayName, classTag, classID
 	local info = UIDropDownMenu_CreateInfo()
-	info.owner = self
 
 	if (UIDROPDOWNMENU_MENU_VALUE == CLASS_DROPDOWN) then 
 		info.text = ALL_CLASSES
@@ -141,7 +140,7 @@ addon.InitializeGearFilter = function(self, level)
 		info.arg1 = nil
 		info.arg2 = nil
 		info.func = setGearFilter
-		UIDropDownMenu_AddButton(info, level)
+		self:AddButton(info, level)
 
 		local numClasses = GetNumClasses()
 		for i = 1, numClasses do
@@ -151,7 +150,7 @@ addon.InitializeGearFilter = function(self, level)
 			info.func = setGearFilter
 			info.arg1 = classID
 			info.arg2 = nil
-			UIDropDownMenu_AddButton(info, level)
+			self:AddButton(info, level)
 		end
 	end
 
@@ -161,7 +160,7 @@ addon.InitializeGearFilter = function(self, level)
 		info.notCheckable = true
 		info.hasArrow = true
 		info.value = CLASS_DROPDOWN
-		UIDropDownMenu_AddButton(info, level)
+		self:AddButton(info, level)
 		
 		if filterClassID > 0 then
 			classDisplayName, classTag, classID = GetClassInfoByID(filterClassID)
@@ -174,7 +173,7 @@ addon.InitializeGearFilter = function(self, level)
 		info.arg2 = nil
 		info.func =  nil
 		info.hasArrow = false
-		UIDropDownMenu_AddButton(info, level)
+		self:AddButton(info, level)
 		
 		info.notCheckable = nil
 		local numSpecs = GetNumSpecializationsForClassID(classID)
@@ -186,7 +185,7 @@ addon.InitializeGearFilter = function(self, level)
 			info.arg1 = classID
 			info.arg2 = specID
 			info.func = setGearFilter
-			UIDropDownMenu_AddButton(info, level)
+			self:AddButton(info, level)
 		end
 
 		info.text = ALL_SPECS
@@ -195,6 +194,6 @@ addon.InitializeGearFilter = function(self, level)
 		info.arg1 = classID
 		info.arg2 = nil
 		info.func = setGearFilter
-		UIDropDownMenu_AddButton(info, level)
+		self:AddButton(info, level)
 	end
 end

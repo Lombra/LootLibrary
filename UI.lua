@@ -1,6 +1,5 @@
 local addonName, addon = ...
 
-local Libra = LibStub("Libra")
 local LBI = LibStub("LibBabble-Inventory-3.0"):GetUnstrictLookupTable()
 local ItemInfo = LibStub("LibItemInfo-1.0")
 
@@ -48,74 +47,42 @@ local noArmor = {
 
 -- do not display a slot for items of these types
 local noSlot = {
-	[LBI["Polearm"]] = true,
-	[LBI["Staff"]] = true,
-	[LBI["Wand"]] = true,
-	[LBI["Gun"]] = true,
-	[LBI["Crossbow"]] = true,
-	[LBI["Bow"]] = true,
-	[LBI["Shield"]] = true,
+	[LBI["Polearms"]] = true,
+	[LBI["Staves"]] = true,
+	[LBI["Wands"]] = true,
+	[LBI["Guns"]] = true,
+	[LBI["Crossbows"]] = true,
+	[LBI["Bows"]] = true,
+	[LBI["Shields"]] = true,
 }
 
-local widgetIndex = 1
-local function getWidgetName()
-	local name = addonName.."Widget"..widgetIndex
-	widgetIndex = widgetIndex + 1
-	return name
-end
+local invTypeExceptions = {
+	INVTYPE_ROBE = "INVTYPE_CHEST",
+	INVTYPE_RANGEDRIGHT = "INVTYPE_RANGED",
+}
 
-local frame = Libra:CreateUIPanel("LootLibraryFrame")
+local noType = {
+	[LBI["Junk"]] = true,
+}
+
+local frame = addon:CreateUIPanel("LootLibraryFrame")
 addon.frame = frame
 frame:SetPoint("CENTER")
 frame:SetToplevel(true)
 frame:EnableMouse(true)
+frame:HidePortrait()
+frame:HideButtonBar()
+frame:SetTitleText("LootLibrary")
 frame:SetScript("OnShow", function(self)
 	PlaySound("igCharacterInfoOpen")
-	if not PanelTemplates_GetSelectedTab(self) then
-		PanelTemplates_SetTab(self, 1)
+	if not self:GetSelectedTab() then
+		self:SelectTab(1)
         -- addon:GetModule("Browse"):CacheAllItems()
 	end
 end)
 frame:SetScript("OnHide", function(self)
 	PlaySound("igCharacterInfoClose")
 end)
-frame:SetTitleText("LootLibrary")
-frame:HidePortrait()
-frame:HideButtonBar()
-
-local tabs = {}
-
-local function onClick(self)
-	PanelTemplates_Tab_OnClick(self, frame)
-	PlaySound("igCharacterInfoTab")
-end
-
-local function onEnable(self)
-	local frame = self.frame
-	frame:Hide()
-end
-
-local function onDisable(self)
-	local frame = self.frame
-	frame:Show()
-end
-
-local function createTab()
-	local numTabs = #tabs + 1
-	local tab = CreateFrame("Button", "LootLibraryFrameTab"..numTabs, frame, "CharacterFrameTabButtonTemplate")
-	if numTabs == 1 then
-		tab:SetPoint("BOTTOMLEFT", 19, -30)
-	else
-		tab:SetPoint("LEFT", tabs[numTabs - 1], "RIGHT", -15, 0)
-	end
-	tab:SetID(numTabs)
-	tab:SetScript("OnClick", onClick)
-	tab:SetScript("OnEnable", onEnable)
-	tab:SetScript("OnDisable", onDisable)
-	tabs[numTabs] = tab
-	PanelTemplates_SetNumTabs(frame, numTabs)
-	return tab
-end
 
 local function onShow(self)
 	if self.OnShow then
@@ -133,6 +100,14 @@ addon.prototype = CreateFrame("Frame")
 local Prototype = addon.prototype
 local mt = {__index = Prototype}
 
+function frame:OnTabSelected(id)
+	self.tabs[id].frame:Show()
+end
+
+function frame:OnTabDeselected(id)
+	self.tabs[id].frame:Hide()
+end
+
 function addon:CreateUI(name)
 	local ui = setmetatable(CreateFrame("Frame", nil, frame), mt)
 	ui:SetAllPoints()
@@ -144,20 +119,20 @@ function addon:CreateUI(name)
 	
 	ui.Inset = frame.Inset
 	
-	local tab = createTab()
+	local tab = frame:CreateTab()
 	tab:SetText(name)
 	tab.frame = ui
 	return ui
 end
 
 function addon:GetSelectedTab()
-	return tabs[PanelTemplates_GetSelectedTab(frame)].frame
+	return frame.tabs[frame:GetSelectedTab()].frame
 end
 
 do
-	frame:SetWidth(PANEL_DEFAULT_WIDTH + 256+22)
+	frame:SetWidth(PANEL_DEFAULT_WIDTH + 256)
 	
-	frame.Inset:SetPoint("TOPLEFT", 260+22, PANEL_INSET_ATTIC_OFFSET)
+	frame.Inset:SetPoint("TOPLEFT", 260, PANEL_INSET_ATTIC_OFFSET)
 	
 	function Prototype:SetScrollFrameHeaderText(indexOrText, text)
 		local index = indexOrText
@@ -198,7 +173,7 @@ do
 	end
 	
 	local function update(self)
-		local offset = HybridScrollFrame_GetOffset(self)
+		local offset = self:GetOffset()
 		local list = self.list
 		if type(list) == "function" then
 			list = list(self)
@@ -229,8 +204,7 @@ do
 	end
 	
 	local function createScrollFrame(self, inset, createButton, onClick, buttonHeight, buttonOffset)
-		local name = getWidgetName()
-		local scrollFrame = CreateFrame("ScrollFrame", name, self, "HybridScrollFrameTemplate")
+		local scrollFrame = addon:CreateScrollFrame("Hybrid", self)
 		scrollFrame:SetPoint("TOP", inset, 0, -4)
 		scrollFrame:SetPoint("LEFT", inset, 4, 0)
 		scrollFrame:SetPoint("BOTTOMRIGHT", inset, -23, 4)
@@ -244,9 +218,8 @@ do
 		scrollFrame.update = function()
 			update(scrollFrame)
 		end
-		_G[name] = nil
 		
-		local scrollBar = CreateFrame("Slider", nil, scrollFrame, "HybridScrollBarTemplate")
+		local scrollBar = scrollFrame.scrollBar
 		scrollBar:ClearAllPoints()
 		scrollBar:SetPoint("TOP", inset, 0, -16)
 		scrollBar:SetPoint("BOTTOMLEFT", scrollFrame, "BOTTOMRIGHT", 0, 11)
@@ -271,8 +244,9 @@ do
 	end
 	
 	do	-- scroll frame for items
-		local dropdown = CreateFrame("Frame")
-		dropdown.displayMode = "MENU"
+		local dropdown = addon:CreateDropdown("Menu")
+		dropdown.xOffset = 0
+		dropdown.yOffset = 0
 		
 		local function onClick(self, button)
 			local module = self:GetParent():GetParent().parent
@@ -298,7 +272,7 @@ do
 				end
 			else
 				dropdown.initialize = module.initialize
-				ToggleDropDownMenu(nil, self.itemID, dropdown, self, 0, 0)
+				dropdown:Toggle(self.itemID, self)
 			end
 		end
 
@@ -466,13 +440,13 @@ do
 					local info = addon:GetItem(object)
 					local r, g, b = GetItemQualityColor(item.quality)
 					local source = info and info.source and next(info.source)
-					local slot = not noSlot[item.type] and _G[item.slot]
-					local armorType = not noArmor[slot] and item.type
-					-- in some cases armorType is the same as slot, no need to show both
-					if armorType and slot and armorType ~= slot then
-						button.info:SetText(slot..", "..armorType)
+					local slot = not noSlot[item.subType] and _G[item.invType]
+					local itemType = not (noArmor[item.invType] or noType[item.subType]) and (weaponTypes[item.subType] or item.subType)
+					-- in some cases itemType is the same as slot, no need to show both
+					if itemType and slot and itemType ~= slot then
+						button.info:SetText(slot..", "..itemType)
 					else
-						button.info:SetText(slot or armorType or "")
+						button.info:SetText(slot or itemType or "")
 					end
 					button.label:SetText(item.name)
 					button.label:SetTextColor(r, g, b)
@@ -649,41 +623,15 @@ do
 	end
 end
 
-local function onEditFocusLost(self)
-	self:SetFontObject("ChatFontSmall")
-	self:SetTextColor(0.5, 0.5, 0.5)
-end
-
-local function onEditFocusGained(self)
-	self:SetTextColor(1, 1, 1)
-end
-
 function Prototype:CreateSearchBox()
-	local name = getWidgetName()
-	local searchBox = CreateFrame("EditBox", name, self, "SearchBoxTemplate")
-	-- apparently the textures bug if you don't specify a name, but we don't need it once it's created, so remove it from global namespace
-	_G[name] = nil
-	searchBox:SetHeight(20)
-	searchBox:SetFontObject("ChatFontSmall")
-	searchBox:SetTextColor(0.5, 0.5, 0.5)
-	searchBox:HookScript("OnEditFocusLost", onEditFocusLost)
-	searchBox:HookScript("OnEditFocusGained", onEditFocusGained)
+	local searchBox = addon:CreateEditbox(self, true)
 	searchBox:SetScript("OnEnterPressed", EditBox_ClearFocus)
 	return searchBox
 end
 
 function Prototype:CreateEditBox()
-	local name = getWidgetName()
-	local editbox = CreateFrame("EditBox", name, self, "InputBoxTemplate")
-	-- apparently the textures bug if you don't specify a name, but we don't need it once it's created, so remove it from global namespace
-	_G[name] = nil
-	-- editbox:SetSize(100, 20)
-	editbox:SetHeight(20)
-	editbox:SetFontObject("ChatFontSmall")
-	-- editbox:SetTextColor(0.5, 0.5, 0.5)
+	local editbox = addon:CreateEditbox(self)
 	editbox:SetAutoFocus(false)
-	-- editbox:HookScript("OnEditFocusLost", onEditFocusLost)
-	-- editbox:HookScript("OnEditFocusGained", onEditFocusGained)
 	editbox:SetScript("OnEnterPressed", EditBox_ClearFocus)
 	return editbox
 end
@@ -713,20 +661,19 @@ end
 
 local sortPriority = {
 	"quality",
-	"slot",
-	"type",
+	"invType",
+	"subType",
 	"name",
 	"itemLevel",
 }
 
-local sortAscending = {
-	name = true,
-	slot = true,
-	type = true,
+local sortDescending = {
+	quality = true,
+	itemLevel = true,
 }
 
 local customSort = {
-	slot = {
+	invType = {
 		"INVTYPE_2HWEAPON",
 		"INVTYPE_WEAPONMAINHAND",
 		"INVTYPE_WEAPONOFFHAND",
@@ -749,7 +696,7 @@ local customSort = {
 		"INVTYPE_FINGER",
 		"INVTYPE_TRINKET",
 	},
-	type = {
+	subType = {
 		LBI["Plate"],
 		LBI["Mail"],
 		LBI["Leather"],
@@ -774,16 +721,23 @@ for k, v in pairs(customSort) do
 	customSort[k] = t
 end
 
+local mappings = {
+	subType = weaponTypes,
+	invType = invTypeExceptions,
+}
+
 local function listSort(a, b)
 	a = ItemInfo[a]
 	b = ItemInfo[b]
 	if not (a and b) then return end
 	for i, v in ipairs(sortPriority) do
-		if a[v] ~= b[v] then
-			if sortAscending[v] then
-				a, b = b, a
+		local valueA, valueB = a[v], b[v]
+		valueA = mappings[v] and mappings[v][valueA] or valueA
+		valueB = mappings[v] and mappings[v][valueB] or valueB
+		if valueA ~= valueB then
+			if sortDescending[v] then
+				valueA, valueB = valueB, valueA
 			end
-			local valueA, valueB = a[v], b[v]
 			if not (valueA and valueB) then
 				return valueA
 			end
@@ -794,10 +748,10 @@ local function listSort(a, b)
 					if not (customSortA and customSortB) then
 						return not customSortA and customSortB
 					end
-					return customSortA > customSortB
+					return customSortA < customSortB
 				end
 			end
-			return valueA > valueB
+			return valueA < valueB
 		end
 	end
 end

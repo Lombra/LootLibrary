@@ -28,8 +28,9 @@ for i = 1, GetNumClasses() do
 	end
 end
 
-local filterMenu = CreateFrame("Frame")
-filterMenu.displayMode = "MENU"
+local filterMenu = addon:CreateDropdown("Menu")
+filterMenu.xOffset = 0
+filterMenu.yOffset = 0
 filterMenu.initialize = addon.InitializeGearFilter
 filterMenu.module = Browse
 filterMenu.onClick = function(self, classID, specID)
@@ -43,9 +44,10 @@ filterButton:SetPoint("TOPLEFT", 16, -32)
 filterButton:SetText(GEAR_FILTER)
 filterButton.rightArrow:Show()
 filterButton:SetScript("OnClick", function(self)
-	ToggleDropDownMenu(nil, nil, filterMenu, self, 0, 0)
+	filterMenu:Toggle()
 	PlaySound("igMainMenuOptionCheckBoxOn")
 end)
+filterMenu.relativeTo = filterButton
 
 -- DIFFICULTY_DUNGEON_NORMAL = 1;
 -- DIFFICULTY_DUNGEON_HEROIC = 2;
@@ -118,8 +120,9 @@ local function selectDifficulty(self, value)
 	end
 end
 
-local difficultyMenu = CreateFrame("Frame")
-difficultyMenu.displayMode = "MENU"
+local difficultyMenu = addon:CreateDropdown("Menu")
+difficultyMenu.xOffset = 0
+difficultyMenu.yOffset = 0
 difficultyMenu.initialize = function(self, level)
 	local currDifficulty = Browse:GetFilter("sourceDifficulty")
 	local currentList = Browse:GetNavigationList()
@@ -149,11 +152,12 @@ difficultyButton:SetPoint("LEFT", filterButton, "RIGHT", 16, 0)
 difficultyButton:SetText("(10) Normal")
 difficultyButton.rightArrow:Show()
 difficultyButton:SetScript("OnClick", function(self)
-	ToggleDropDownMenu(nil, nil, difficultyMenu, self, 0, 0)
+	difficultyMenu:Toggle()
 	PlaySound("igMainMenuOptionCheckBoxOn")
 end)
+difficultyMenu.relativeTo = difficultyButton
 
-local searchBox = Browse:CreateSearchBox("LootLibrarySearchBox")
+local searchBox = Browse:CreateSearchBox()
 searchBox:SetPoint("TOPRIGHT", -16, -33)
 searchBox:SetSize(128, 20)
 searchBox:SetScript("OnTextChanged", function(self, isUserInput)
@@ -161,25 +165,31 @@ searchBox:SetScript("OnTextChanged", function(self, isUserInput)
 		return
 	end
 	local text = self:GetText():lower()
-	local search = {}
-	for _, tier in ipairs(addon:GetList(true)) do
-		for _, instance in ipairs(tier.data) do
-			if (self:GetText():trim() == "" or strfind(instance.name:lower(), text)) and not instance.special then
-				tinsert(search, instance)
-			end
-			for _, boss in ipairs(instance.data) do
-				if (self:GetText():trim() == "" or strfind(boss.name:lower(), text)) and not boss.special then
-					tinsert(search, boss)
-				end
-			end
-		end
+	-- local search = {}
+	-- for _, tier in ipairs(Browse:GetList(true)) do
+		-- for _, instance in ipairs(tier.data) do
+			-- if (self:GetText():trim() == "" or strfind(instance.name:lower(), text)) and not instance.special then
+				-- tinsert(search, instance)
+			-- end
+			-- for _, boss in ipairs(instance.data) do
+				-- if (self:GetText():trim() == "" or strfind(boss.name:lower(), text)) and not boss.special then
+					-- tinsert(search, boss)
+				-- end
+			-- end
+		-- end
+	-- end
+	-- for itemID, data in pairs(items) do
+		-- if self:GetText():trim() == "" or strfind(data.name:lower(), text) then
+			-- tinsert(search, itemID)
+		-- end
+	-- end
+	-- Browse:SetNavigationList(search)
+	if text:trim() ~= "" then
+		Browse:SetFilter("name", text)
+	else
+		Browse:ClearFilter("name")
 	end
-	for itemID, data in pairs(items) do
-		if self:GetText():trim() == "" or strfind(data.name:lower(), text) then
-			tinsert(search, itemID)
-		end
-	end
-	Browse:SetNavigationList(search)
+	Browse:ApplyFilters()
 end)
 
 local tierButton
