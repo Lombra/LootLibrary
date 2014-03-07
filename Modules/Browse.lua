@@ -36,6 +36,7 @@ filterMenu.module = Browse
 filterMenu.onClick = function(self, classID, specID)
 	-- Browse:LoadSpecData(Browse:GetNavigationList() ~= home and Browse:GetSelectedTier())
 	Browse:UpdateLoot()
+	Browse:ApplyFilters()
 end
 
 local filterButton = CreateFrame("Button", "LootLibraryFilter", Browse, "UIMenuButtonStretchTemplate")
@@ -115,9 +116,7 @@ end
 local function selectDifficulty(self, value)
 	Browse:SetDifficulty(value)
 	Browse:UpdateLoot()
-	if not Browse:IsJournal() then
-		Browse:ApplyFilters()
-	end
+	Browse:ApplyFilters()
 end
 
 local difficultyMenu = addon:CreateDropdown("Menu")
@@ -160,6 +159,10 @@ difficultyMenu.relativeTo = difficultyButton
 local searchBox = Browse:CreateSearchBox()
 searchBox:SetPoint("TOPRIGHT", -16, -33)
 searchBox:SetSize(128, 20)
+searchBox.clearFunc = function()
+	Browse:ClearFilter("name")
+	Browse:ApplyFilters()
+end
 searchBox:SetScript("OnTextChanged", function(self, isUserInput)
 	if not isUserInput then
 		return
@@ -264,9 +267,7 @@ do
 			self.scrollFrame.headers[1]:Show()
 			self:SetFilter("source", object.id)
 			self:UpdateLoot()
-			if not self:IsJournal() then
-				self:ApplyFilters()
-			end
+			self:ApplyFilters()
 		end
 	end
 	
@@ -391,19 +392,21 @@ function Browse:UpdateLoot()
 			if not item then
 				item = {
 					source = {},
-					-- class = 0,
-					-- spec = 0,
-					-- sourceDifficulty = 0,
+					sourceDifficulty = 0,
+					class = 0,
+					spec = 0,
 				}
 				addon:AddItem(itemID, item, true)
 			end
 			item.source[encounterID] = true
+			item.sourceDifficulty = bit.bor(item.sourceDifficulty, 2 ^ difficultyID)
+			item.class = bit.bor(item.class, 2 ^ (self:GetFilter("class") or 0))
+			item.spec = bit.bor(item.spec, 2 ^ (specs[self:GetFilter("spec")] or 0))
 			-- if this item has already been added for the current instance, don't add it again, otherwise we'd get duplicates from 10 and 25 man
 			-- if not addedItems[itemID] then
 				-- tinsert(instance.loot, itemID)
 				-- addedItems[itemID] = true
 			-- end
-			-- item.sourceDifficulty = bit.bor(item.sourceDifficulty, 2 ^ v.difficultyID)
 		end
 		EJ_SetLootFilter(classFilter, specFilter)
 		self:SetList(loot)
