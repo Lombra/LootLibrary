@@ -1,5 +1,5 @@
 <Bindings>
-	<Binding name="LOOT_LIBRARY_TOGGLE" header="LOOT_LIBRARY">
+	<Binding category="ADDONS" name="LOOT_LIBRARY_TOGGLE" header="LOOT_LIBRARY">
 		ToggleFrame(LootLibraryFrame)
 	</Binding>
 </Bindings>

@@ -54,17 +54,20 @@ do
 		end
 	end
 	
-	local scrollFrame = Favorites:CreateNavigationFrame(onClick)
+	local scrollFrame = Favorites:CreateNavigationFrame()
 	scrollFrame.updateButton = function(button, object)
 		button:SetText(object.name)
 		button.list = object
 	end
+	scrollFrame.onClick = onClick
 
 	local homeButton = scrollFrame:AddHeader()
 	homeButton:SetText("All items")
+	homeButton:SetScript("OnClick", onClick)
 
 	local instanceButton = scrollFrame:AddHeader()
 	instanceButton:SetText("Sets")
+	instanceButton:SetScript("OnClick", onClick)
 	
 	scrollFrame:UpdateHeight()
 end

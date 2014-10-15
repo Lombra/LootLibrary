@@ -29,8 +29,6 @@ for i = 1, GetNumClasses() do
 end
 
 local filterMenu = addon:CreateDropdown("Menu")
-filterMenu.xOffset = 0
-filterMenu.yOffset = 0
 filterMenu.initialize = addon.InitializeGearFilter
 filterMenu.module = Browse
 filterMenu.onClick = function(self, classID, specID)
@@ -39,11 +37,11 @@ filterMenu.onClick = function(self, classID, specID)
 	Browse:ApplyFilters()
 end
 
-local filterButton = CreateFrame("Button", "LootLibraryFilter", Browse, "UIMenuButtonStretchTemplate")
+local filterButton = addon:CreateButton(Browse)
 filterButton:SetWidth(96)
 filterButton:SetPoint("TOPLEFT", 16, -32)
 filterButton:SetText(GEAR_FILTER)
-filterButton.rightArrow:Show()
+filterButton.arrow:Show()
 filterButton:SetScript("OnClick", function(self)
 	filterMenu:Toggle()
 	PlaySound("igMainMenuOptionCheckBoxOn")
@@ -96,14 +94,25 @@ local DIFFICULTIES = {
 		difficultyID = 6,
 	},
 	{
-		size = "10-25",
-		prefix = PLAYER_DIFFICULTY4,
-		difficultyID = 14,
-	},
-	{
 		size = 40,
 		prefix = PLAYER_DIFFICULTY1,
 		difficultyID = 9,
+	},
+	{
+		prefix = PLAYER_DIFFICULTY3,
+		difficultyID = 17,
+	},
+	{
+		prefix = PLAYER_DIFFICULTY1,
+		difficultyID = 14,
+	},
+	{
+		prefix = PLAYER_DIFFICULTY2,
+		difficultyID = 15,
+	},
+	{
+		prefix = PLAYER_DIFFICULTY6,
+		difficultyID = 16,
 	},
 }
 
@@ -120,8 +129,6 @@ local function selectDifficulty(self, value)
 end
 
 local difficultyMenu = addon:CreateDropdown("Menu")
-difficultyMenu.xOffset = 0
-difficultyMenu.yOffset = 0
 difficultyMenu.initialize = function(self, level)
 	local currDifficulty = Browse:GetFilter("sourceDifficulty")
 	local currentList = Browse:GetNavigationList()
@@ -135,21 +142,21 @@ difficultyMenu.initialize = function(self, level)
 	for i, entry in ipairs(Browse:GetDifficulties()) do
 		if not filter or bit.band(filter, 2 ^ entry.difficultyID) ~= 0 then
 			local info = UIDropDownMenu_CreateInfo()
-			info.text = format(ENCOUNTER_JOURNAL_DIFF_TEXT, entry.size, entry.prefix)
+			info.text = entry.size and format(ENCOUNTER_JOURNAL_DIFF_TEXT, entry.size, entry.prefix) or entry.prefix
 			info.func = selectDifficulty
 			info.arg1 = entry.difficultyID
 			info.checked = currDifficulty == entry.difficultyID
 			info.disabled = filter and bit.band(filter, 2 ^ entry.difficultyID) == 0
-			UIDropDownMenu_AddButton(info)
+			self:AddButton(info)
 		end
 	end
 end
 
-local difficultyButton = CreateFrame("Button", "LootLibraryDifficulty", Browse, "UIMenuButtonStretchTemplate")
+local difficultyButton = addon:CreateButton(Browse)
 difficultyButton:SetWidth(120)
 difficultyButton:SetPoint("LEFT", filterButton, "RIGHT", 16, 0)
 difficultyButton:SetText("(10) Normal")
-difficultyButton.rightArrow:Show()
+difficultyButton.arrow:Show()
 difficultyButton:SetScript("OnClick", function(self)
 	difficultyMenu:Toggle()
 	PlaySound("igMainMenuOptionCheckBoxOn")
@@ -205,7 +212,7 @@ do
 		Browse:OnClick(self, button)
 	end
 	
-	local scrollFrame = Browse:CreateNavigationFrame(onClick)
+	local scrollFrame = Browse:CreateNavigationFrame()
 	scrollFrame.dynamicHeaders = true
 	scrollFrame.updateButton = function(button, object, list)
 		local item = data[list.type][object]
@@ -220,6 +227,7 @@ do
 		button.index = index
 		button.id = object
 	end
+	scrollFrame.onClick = onClick
 	
 	scrollFrame:SetScript("OnMouseUp", function(self, button)
 		if button == "RightButton" then
@@ -271,19 +279,22 @@ do
 		end
 	end
 	
-	local homeButton = scrollFrame:AddHeader(onClick)
+	local homeButton = scrollFrame:AddHeader()
 	homeButton.type = "tiers"
 	homeButton.list = home
 	homeButton:SetText(HOME)
+	homeButton:SetScript("OnClick", onClick)
 	
-	tierButton = scrollFrame:AddHeader(onClick)
+	tierButton = scrollFrame:AddHeader()
 	tierButton.type = "instances"
 	tierButton.label:SetPoint("LEFT", 15, 0)
+	tierButton:SetScript("OnClick", onClick)
 	tierButton:Hide()
 	
-	instanceButton = scrollFrame:AddHeader(onClick)
+	instanceButton = scrollFrame:AddHeader()
 	instanceButton.type = "encounters"
 	instanceButton.label:SetPoint("LEFT", 19, 0)
+	instanceButton:SetScript("OnClick", onClick)
 	instanceButton:Hide()
 end
 
@@ -369,6 +380,8 @@ function Browse:OnShow()
 	end
 end
 
+local addedItems = {}
+
 function Browse:UpdateLoot()
 	if not self:GetSelectedInstance() then
 		return
@@ -383,12 +396,12 @@ function Browse:UpdateLoot()
 			EJ_SelectEncounter(source)
 		end
 		local loot = {}
+		wipe(addedItems)
 		local classFilter, specFilter = EJ_GetLootFilter()
 		EJ_SetLootFilter(self:GetFilter("class") or 0, self:GetFilter("spec") or 0)
 		for i = 1, EJ_GetNumLoot() do
 			local name, icon, slot, armorType, itemID, link, encounterID = EJ_GetLootInfoByIndex(i)
-			tinsert(loot, itemID)
-			local item = addon:GetItem(itemID)
+			local item = addon:GetItem(link)
 			if not item then
 				item = {
 					source = {},
@@ -396,17 +409,17 @@ function Browse:UpdateLoot()
 					class = 0,
 					spec = 0,
 				}
-				addon:AddItem(itemID, item, true)
+				addon:AddItem(link, item, true)
 			end
 			item.source[encounterID] = true
 			item.sourceDifficulty = bit.bor(item.sourceDifficulty, 2 ^ difficultyID)
 			item.class = bit.bor(item.class, 2 ^ (self:GetFilter("class") or 0))
 			item.spec = bit.bor(item.spec, 2 ^ (specs[self:GetFilter("spec")] or 0))
 			-- if this item has already been added for the current instance, don't add it again, otherwise we'd get duplicates from 10 and 25 man
-			-- if not addedItems[itemID] then
-				-- tinsert(instance.loot, itemID)
-				-- addedItems[itemID] = true
-			-- end
+			if not addedItems[link] then
+				tinsert(loot, link)
+				addedItems[link] = true
+			end
 		end
 		EJ_SetLootFilter(classFilter, specFilter)
 		self:SetList(loot)
@@ -438,7 +451,7 @@ function Browse:SetDifficulty(difficultyID)
 	self:SetFilter("sourceDifficulty", difficultyID)
 	-- self:ApplyFilters()
 	local entry = difficultyInfo[difficultyID]
-	LootLibraryDifficulty:SetFormattedText(ENCOUNTER_JOURNAL_DIFF_TEXT, entry.size, entry.prefix)
+	difficultyButton:SetFormattedText(entry.size and ENCOUNTER_JOURNAL_DIFF_TEXT or entry.prefix, entry.size, entry.prefix)
 end
 
 function Browse:SetSelectedTier(tierID)
@@ -522,46 +535,44 @@ function Browse:IsJournal()
 	return instanceButton.list.journal
 end
 
-local addedItems = {}
-
 function Browse:LoadTierLoot(index)
 	local classFilter, specFilter = EJ_GetLootFilter()
+	EJ_SetLootFilter(0, 0)
 	for i, instanceID in ipairs(data.tiers[index]) do
 		local instance = data.instances[instanceID]
 		if instance.journal then
-		wipe(instance.loot)
-		wipe(addedItems)
-		EJ_SelectInstance(instanceID)
-		
-		for i, v in ipairs(self:GetDifficulties(instance.isRaid)) do
-			if EJ_IsValidInstanceDifficulty(v.difficultyID) then
-				EJ_SetDifficulty(v.difficultyID)
-				local encounterIndex = 1
-				while true do
-					local name, _, encounterID = EJ_GetEncounterInfoByIndex(encounterIndex)
-					if not encounterID then
-						break
+			wipe(instance.loot)
+			wipe(addedItems)
+			EJ_SelectInstance(instanceID)
+			
+			for i, v in ipairs(self:GetDifficulties(instance.isRaid)) do
+				if EJ_IsValidInstanceDifficulty(v.difficultyID) then
+					EJ_SetDifficulty(v.difficultyID)
+					local encounterIndex = 1
+					while true do
+						local name, _, encounterID = EJ_GetEncounterInfoByIndex(encounterIndex)
+						if not encounterID then
+							break
+						end
+						local encounter = data.encounters[encounterID]
+						if not encounter then
+							tinsert(instance, encounterIndex, encounterID)
+							encounter = {
+								name = name,
+								difficulty = 0,
+							}
+						end
+						encounterIndex = encounterIndex + 1
+						encounter.difficulty = bit.bor(encounter.difficulty, 2 ^ v.difficultyID)
+						data.encounters[encounterID] = encounter
 					end
-					local encounter = data.encounters[encounterID]
-					if not encounter then
-						tinsert(instance, encounterIndex, encounterID)
-						encounter = {
-							name = name,
-							difficulty = 0,
-						}
+					
+					local numLoot = EJ_GetNumLoot()
+					if numLoot > 0 then
+						instance.difficulty = bit.bor(instance.difficulty, 2 ^ v.difficultyID)
 					end
-					encounterIndex = encounterIndex + 1
-					encounter.difficulty = bit.bor(encounter.difficulty, 2 ^ v.difficultyID)
-					data.encounters[encounterID] = encounter
-				end
-				
-				EJ_SetLootFilter(0, 0)
-				local numLoot = EJ_GetNumLoot()
-				if numLoot > 0 then
-					instance.difficulty = bit.bor(instance.difficulty, 2 ^ v.difficultyID)
 				end
 			end
-		end
 		end
 	end
 	EJ_SetLootFilter(classFilter, specFilter)

@@ -203,11 +203,15 @@ do
 		HybridScrollFrame_Update(self, totalHeight, displayedHeight)
 	end
 	
-	local function createScrollFrame(self, inset, createButton, onClick, buttonHeight, buttonOffset)
+	local function createScrollFrame(self, inset, createButton, buttonHeight, buttonOffset)
 		local scrollFrame = addon:CreateScrollFrame("Hybrid", self)
 		scrollFrame:SetPoint("TOP", inset, 0, -4)
 		scrollFrame:SetPoint("LEFT", inset, 4, 0)
-		scrollFrame:SetPoint("BOTTOMRIGHT", inset, -23, 4)
+		scrollFrame:SetPoint("BOTTOMRIGHT", inset, -20, 4)
+		scrollFrame:SetButtonHeight(buttonHeight)
+		scrollFrame.initialOffsetX = 1
+		scrollFrame.initialOffsetY = -2
+		scrollFrame.offsetY = -buttonOffset
 		scrollFrame.parent = self
 		scrollFrame.inset = inset
 		scrollFrame.AddHeader = addHeader
@@ -218,35 +222,20 @@ do
 		scrollFrame.update = function()
 			update(scrollFrame)
 		end
+		scrollFrame.createButton = createButton
+		scrollFrame:CreateButtons()
 		
 		local scrollBar = scrollFrame.scrollBar
 		scrollBar:ClearAllPoints()
-		scrollBar:SetPoint("TOP", inset, 0, -16)
-		scrollBar:SetPoint("BOTTOMLEFT", scrollFrame, "BOTTOMRIGHT", 0, 11)
+		scrollBar:SetPoint("TOPRIGHT", inset, 0, -18)
+		scrollBar:SetPoint("BOTTOMRIGHT", inset, 0, 16)
 		scrollBar.doNotHide = true
-		
-		local buttons = {}
-		scrollFrame.buttons = buttons
-		
-		for i = 1, (ceil(scrollFrame:GetHeight() / buttonHeight) + 1) do
-			local button = createButton(scrollFrame.scrollChild, onClick)
-			if i == 1 then
-				button:SetPoint("TOPLEFT", 1, -2)
-			else
-				button:SetPoint("TOPLEFT", buttons[i - 1], "BOTTOMLEFT", 0, -buttonOffset)
-			end
-			buttons[i] = button
-		end
-		
-		HybridScrollFrame_CreateButtons(scrollFrame, nil, nil, nil, nil, nil, nil, -buttonOffset)
 		
 		return scrollFrame
 	end
 	
 	do	-- scroll frame for items
 		local dropdown = addon:CreateDropdown("Menu")
-		dropdown.xOffset = 0
-		dropdown.yOffset = 0
 		
 		local function onClick(self, button)
 			local module = self:GetParent():GetParent().parent
@@ -283,7 +272,6 @@ do
 				else
 					ShoppingTooltip1:Hide()
 					ShoppingTooltip2:Hide()
-					ShoppingTooltip3:Hide()
 				end
 
 				if IsModifiedClick("DRESSUP") then
@@ -297,7 +285,11 @@ do
 		local function onEnter(self)
 			if self.itemID then
 				GameTooltip:SetOwner(self, "ANCHOR_RIGHT", 28, 0)
-				GameTooltip:SetItemByID(self.itemID)
+				if type(self.itemID) == "number" then
+					GameTooltip:SetItemByID(self.itemID)
+				else
+					GameTooltip:SetHyperlink(self.itemID)
+				end
 				local info = addon:GetItem(self.itemID)
 				if info then
 					GameTooltip:AddLine(" ")
@@ -307,7 +299,6 @@ do
 					end
 					GameTooltip:Show()
 				end
-				self.showingTooltip = true
 				if IsModifiedClick("DRESSUP") then
 					ShowInspectCursor()
 				end
@@ -317,7 +308,6 @@ do
 
 		local function onLeave(self)
 			GameTooltip:Hide()
-			self.showingTooltip = false
 			ResetCursor()
 			self:SetScript("OnUpdate", nil)
 		end
@@ -462,9 +452,9 @@ do
 				button.itemID = object
 			end
 			
-			if button.showingTooltip then
+			if GetMouseFocus() == button then
 				if not isHeader then
-					GameTooltip:SetItemByID(button.itemID)
+					onEnter(button)
 				else
 					GameTooltip:Hide()
 				end
@@ -479,7 +469,7 @@ do
 		end
 		
 		function Prototype:CreateScrollFrame()
-			local scrollFrame = createScrollFrame(self, frame.Inset, createButton, onClick, BUTTON_HEIGHT, BUTTON_OFFSET)
+			local scrollFrame = createScrollFrame(self, frame.Inset, createButton, BUTTON_HEIGHT, BUTTON_OFFSET)
 			scrollFrame.list = getList
 			scrollFrame.updateButton = updateButton
 			scrollFrame.CreateHeader = createHeader
@@ -492,11 +482,14 @@ do
 		local BUTTON_HEIGHT = 16
 		local BUTTON_OFFSET = 3
 		
-		local function onClick(self)
-			Browse:SetNavigationList(self)
+		local function onClick(self, button)
+			local scrollFrame = self:GetParent():GetParent()
+			if scrollFrame.onClick then
+				scrollFrame.onClick(self, button)
+			end
 		end
 		
-		local function createButtonBase(frame, onClick)
+		local function createButtonBase(frame)
 			local button = CreateFrame("Button", nil, frame)
 			button:SetHeight(BUTTON_HEIGHT)
 			button:SetPoint("RIGHT", -5, 0)
@@ -510,8 +503,8 @@ do
 			return button
 		end
 		
-		local function createButton(frame, onClick)
-			local button = createButtonBase(frame, onClick)
+		local function createButton(frame)
+			local button = createButtonBase(frame)
 			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 			button:SetHighlightTexture([[Interface\QuestFrame\UI-QuestTitleHighlight]])
 			
@@ -608,15 +601,14 @@ do
 			return button
 		end
 		
-		function Prototype:CreateNavigationFrame(onClick)
+		function Prototype:CreateNavigationFrame()
 			local inset = CreateFrame("Frame", nil, self, "InsetFrameTemplate")
 			inset:SetPoint("TOPLEFT", PANEL_INSET_LEFT_OFFSET, PANEL_INSET_ATTIC_OFFSET)
 			inset:SetPoint("BOTTOM", 0, PANEL_INSET_BOTTOM_OFFSET + 2)
 			inset:SetPoint("RIGHT", self.Inset, "LEFT", PANEL_INSET_RIGHT_OFFSET, 0)
 			
-			local scrollFrame = createScrollFrame(self, inset, createButton, onClick, BUTTON_HEIGHT, BUTTON_OFFSET)
+			local scrollFrame = createScrollFrame(self, inset, createButton, BUTTON_HEIGHT, BUTTON_OFFSET)
 			scrollFrame.CreateHeader = createHeader
-			scrollFrame.onClick = onClick
 			self.navigationScrollFrame = scrollFrame
 			return scrollFrame
 		end
@@ -637,7 +629,7 @@ function Prototype:CreateEditBox()
 end
 
 ItemInfo.RegisterCallback(addon, "OnItemInfoReceivedBatch", function(self)
-	for k, module in addon:IterateModules() do
+	for i, module in addon:IterateModules() do
 		if module.doUpdateList then
 			module.doUpdateList = nil
 			-- module:UpdateList()
