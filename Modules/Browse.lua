@@ -17,13 +17,15 @@ local data = {
 
 local home = {type = "tiers"}
 
+local sex = UnitSex("player")
+
 local specs = {}
 
 local n = 1
 for i = 1, GetNumClasses() do
 	local classDisplayName, classTag, classID = GetClassInfo(i)
 	for i = 1, GetNumSpecializationsForClassID(classID) do
-		specs[GetSpecializationInfoForClassID(classID, i)] = n
+		specs[GetSpecializationInfoForClassID(classID, i, sex)] = n
 		n = n + 1
 	end
 end
@@ -67,6 +69,16 @@ local DIFFICULTIES = {
 		size = 5,
 		prefix = PLAYER_DIFFICULTY2,
 		difficultyID = 2,
+	},
+	{
+		size = 5,
+		prefix = PLAYER_DIFFICULTY6,
+		difficultyID = 23,
+	},
+	{
+		size = 5,
+		prefix = PLAYER_DIFFICULTY_TIMEWALKER,
+		difficultyID = 24,
 	},
 	{
 		size = 25,
@@ -163,16 +175,16 @@ difficultyButton:SetScript("OnClick", function(self)
 end)
 difficultyMenu.relativeTo = difficultyButton
 
-local searchBox = Browse:CreateSearchBox()
+local searchBox = addon:CreateEditbox(Browse, true)
 searchBox:SetPoint("TOPRIGHT", -16, -33)
 searchBox:SetSize(128, 20)
 searchBox.clearFunc = function()
 	Browse:ClearFilter("name")
 	Browse:ApplyFilters()
 end
-searchBox:SetScript("OnTextChanged", function(self, isUserInput)
+searchBox:HookScript("OnTextChanged", function(self, isUserInput)
 	if not isUserInput then
-		return
+		-- return
 	end
 	local text = self:GetText():lower()
 	-- local search = {}
@@ -400,7 +412,7 @@ function Browse:UpdateLoot()
 		local classFilter, specFilter = EJ_GetLootFilter()
 		EJ_SetLootFilter(self:GetFilter("class") or 0, self:GetFilter("spec") or 0)
 		for i = 1, EJ_GetNumLoot() do
-			local name, icon, slot, armorType, itemID, link, encounterID = EJ_GetLootInfoByIndex(i)
+			local itemID, encounterID, name, icon, slot, armorType, link = EJ_GetLootInfoByIndex(i)
 			local item = addon:GetItem(link)
 			if not item then
 				item = {

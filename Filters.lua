@@ -103,13 +103,15 @@ function Prototype:ClearFilters()
 	-- self:UpdateList()
 end
 
+local sex = UnitSex("player")
+
 local specs = {}
 
 local n = 1
 for i = 1, GetNumClasses() do
 	local classDisplayName, classTag, classID = GetClassInfo(i)
 	for i = 1, GetNumSpecializationsForClassID(classID) do
-		specs[GetSpecializationInfoForClassID(classID, i)] = n
+		specs[GetSpecializationInfoForClassID(classID, i, sex)] = n
 		n = n + 1
 	end
 end
@@ -178,7 +180,7 @@ addon.InitializeGearFilter = function(self, level)
 		info.notCheckable = nil
 		local numSpecs = GetNumSpecializationsForClassID(classID)
 		for i = 1, numSpecs do
-			local specID, specName = GetSpecializationInfoForClassID(classID, i)
+			local specID, specName = GetSpecializationInfoForClassID(classID, i, sex)
 			info.leftPadding = 10
 			info.text = specName
 			info.checked = (filterSpecID == specID)

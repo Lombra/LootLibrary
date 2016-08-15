@@ -615,12 +615,6 @@ do
 	end
 end
 
-function Prototype:CreateSearchBox()
-	local searchBox = addon:CreateEditbox(self, true)
-	searchBox:SetScript("OnEnterPressed", EditBox_ClearFocus)
-	return searchBox
-end
-
 function Prototype:CreateEditBox()
 	local editbox = addon:CreateEditbox(self)
 	editbox:SetAutoFocus(false)

@@ -67,12 +67,12 @@ function Search:OnUpdateList()
 	numResults:SetFormattedText("%d results.", #self:GetList())
 end
 
-local nameFilter = Search:CreateSearchBox()
+local nameFilter = addon:CreateEditbox(Search, true)
 nameFilter:SetPoint("TOPLEFT", 24, -80)
 nameFilter:SetSize(100, 20)
 nameFilter:SetScript("OnTextChanged", function(self, isUserInput)
 	if not isUserInput then
-		return
+		-- return
 	end
 	local text = self:GetText():lower()
 	if text:trim() ~= "" then
